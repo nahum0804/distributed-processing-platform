@@ -169,15 +169,23 @@ En `CorruptInputError` el mensaje trae la **cola del stderr** de FFmpeg (última
 
 ## 5. Timeout y `threads`
 
-**Timeout.** Si `timeout` es `None` (lo normal), rige `DEFAULT_TIMEOUT_S = 600` s. Solo llega un número si Dev 2 define `FFMPEG_TIMEOUT`. Mientras FFmpeg corre, el hilo que llamó a `process()` está leyendo el progreso, así que el tiempo lo vigila un `threading.Timer`. Al vencer:
+**Timeout.** Solo llega un número si Dev 2 define `FFMPEG_TIMEOUT`, y en ese caso se respeta tal cual. Si `timeout` es `None` (lo normal), se calcula en proporción a la duración del medio (`_timeout_for`):
+
+| Operación | Timeout |
+|---|---|
+| `transcode_video` (CPU) | `max(60, duración × 3)` |
+| `transcode_video` (NVENC) | `max(60, duración × 1.5)`; si hay respaldo a CPU, el reintento usa el de CPU |
+| `extract_audio`, `convert_audio` | `max(30, duración × 1)` |
+| `generate_thumbnail`, `extract_metadata` | 30 s |
+| tope global | 1800 s |
+
+Si la duración es desconocida, se usa `DEFAULT_TIMEOUT_S = 600` s. Por ejemplo, un video de 10 min tiene 1800 s en CPU y 900 s con NVENC. Mientras FFmpeg corre, el hilo que llamó a `process()` está leyendo el progreso, así que el tiempo lo vigila un `threading.Timer`. Al vencer:
 1. el Timer marca un `threading.Event` y mata el proceso FFmpeg (`proc.kill()`: `TerminateProcess` en Windows, `SIGKILL` en Linux);
 2. al morir FFmpeg se cierra el pipe de stdout, la lectura termina y `proc.wait()` recoge el código de salida, así que no queda ningún proceso vivo (ni zombi en Linux);
 3. se borra la salida parcial;
 4. como el Event quedó marcado, se lanza `ProcessingTimeoutError`.
 
 Si FFmpeg termina bien justo en el instante en que salta el Timer (código 0), el resultado se da por válido.
-
-La P2-d cambiará el default por un valor proporcional a la duración del medio (tope 1800 s).
 
 **Progreso.** `on_progress` recibe `0.0` al empezar y `100.0` cuando la salida ya está verificada. En `transcode_video`, `extract_audio` y `convert_audio`, además, se lee `out_time_us` del pipe de progreso y se calcula `out_time_us / 1e6 / duración × 100`:
 - como máximo una llamada por segundo;

@@ -71,7 +71,11 @@ SUPPORTED_OPERATIONS = (
     "extract_metadata",
 )
 
-DEFAULT_TIMEOUT_S = 600  # P1: fijo. P2-d: proporcional a la duración (tope 1800 s).
+DEFAULT_TIMEOUT_S = 600  # si timeout es None y la duración del medio es desconocida
+
+# Timeouts proporcionales (se usan solo si timeout es None). Ver _timeout_for().
+MAX_TIMEOUT_S = 1800          # tope global
+FIXED_SHORT_TIMEOUT_S = 30    # miniatura y metadatos
 
 # Tiempo máximo para ffprobe (leer solo la cabecera es rápido).
 PROBE_TIMEOUT_S = 30
@@ -206,8 +210,6 @@ def process(
 
     params = params if isinstance(params, dict) else {}
     threads = _valid_threads(threads)
-    # TODO P2-d: si timeout es None, calcularlo según la duración del medio.
-    limit = timeout if timeout is not None else DEFAULT_TIMEOUT_S
 
     # 5. Carpeta de salida.
     out_path = Path(out_dir)
@@ -236,7 +238,7 @@ def process(
             )
             try:
                 cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
-                _run(cmd, limit, name, tracker)
+                _run(cmd, _timeout_for(operation, media_duration, encoder, timeout), name, tracker)
             except CorruptInputError as exc:
                 # Respaldo GPU -> CPU: solo si falló NVENC (no el archivo). Un timeout
                 # no es CorruptInputError, así que nunca dispara el respaldo.
@@ -246,7 +248,7 @@ def process(
                 _remove_quietly(dst)
                 encoder = "libx264"
                 cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
-                _run(cmd, limit, name, tracker)
+                _run(cmd, _timeout_for(operation, media_duration, encoder, timeout), name, tracker)
         _verify_output(dst, name)
     except BaseException:
         _remove_quietly(dst)
@@ -555,6 +557,32 @@ def _run(cmd: list[str], timeout: float, name: str, tracker: Optional[_ProgressT
         error.stderr = stderr
         raise error
     return stderr
+
+
+def _timeout_for(
+    operation: str, duration: Optional[float], encoder: Optional[str], requested: Optional[float]
+) -> float:
+    """Tiempo máximo para FFmpeg.
+
+    Si el worker pasó un `timeout` explícito (FFMPEG_TIMEOUT), se respeta tal cual.
+    Si no, se calcula en proporción a la duración del medio:
+      - transcode_video: max(60, duración × 3); con NVENC, max(60, duración × 1.5)
+      - extract_audio / convert_audio: max(30, duración × 1)
+      - generate_thumbnail / extract_metadata: 30 s
+    con un tope global de MAX_TIMEOUT_S. Si la duración es desconocida, DEFAULT_TIMEOUT_S.
+    """
+    if requested is not None:
+        return requested
+    if operation in ("generate_thumbnail", "extract_metadata"):
+        return FIXED_SHORT_TIMEOUT_S
+    if duration is None or duration <= 0:
+        return DEFAULT_TIMEOUT_S
+    if operation == "transcode_video":
+        factor = 1.5 if encoder == _NVENC_ENCODER else 3.0
+        value = max(60.0, duration * factor)
+    else:
+        value = max(30.0, duration * 1.0)
+    return min(value, MAX_TIMEOUT_S)
 
 
 def _stderr_tail(stderr: str, max_chars: int = 500) -> str:

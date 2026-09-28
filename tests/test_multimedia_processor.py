@@ -532,3 +532,38 @@ def test_ffmpeg_recibe_progress_pipe(media, tmp_path, monkeypatch):
     mp.process("convert_audio", str(media["wav"]), str(tmp_path))
     ffmpeg_cmd = next(c for c in comandos if c[0] == "ffmpeg")
     assert ffmpeg_cmd[1:4] == ["-progress", "pipe:1", "-nostats"]
+
+
+# ---------- P2-d: timeouts proporcionales ----------
+@pytest.mark.parametrize(
+    "operation, duration, encoder, requested, esperado",
+    [
+        ("transcode_video", 100.0, "libx264", None, 300.0),     # 100 × 3
+        ("transcode_video", 100.0, "h264_nvenc", None, 150.0),  # 100 × 1.5 con NVENC
+        ("transcode_video", 5.0, "libx264", None, 60.0),        # mínimo 60
+        ("transcode_video", 3600.0, "libx264", None, 1800.0),   # tope global
+        ("extract_audio", 100.0, "libmp3lame", None, 100.0),    # 100 × 1
+        ("convert_audio", 5.0, "libmp3lame", None, 30.0),       # mínimo 30
+        ("generate_thumbnail", 3600.0, "mjpeg", None, 30.0),    # fijo
+        ("extract_metadata", None, None, None, 30.0),           # fijo
+        ("transcode_video", None, "libx264", None, 600.0),      # duración desconocida
+        ("transcode_video", 100.0, "libx264", 7.5, 7.5),        # explícito: se respeta
+    ],
+)
+def test_timeout_proporcional(operation, duration, encoder, requested, esperado):
+    assert mp._timeout_for(operation, duration, encoder, requested) == pytest.approx(esperado)
+
+
+def test_process_usa_timeout_proporcional(media, tmp_path, monkeypatch):
+    timeouts = []
+    real_run = mp._run
+
+    def run_espia(cmd, timeout, *args, **kwargs):
+        timeouts.append(timeout)
+        return real_run(cmd, timeout, *args, **kwargs)
+
+    monkeypatch.setattr(mp, "_run", run_espia)
+    mp.process("transcode_video", str(media["video"]), str(tmp_path / "a"))              # 3 s → mínimo 60
+    mp.process("extract_audio", str(media["video"]), str(tmp_path / "b"))                # 3 s → mínimo 30
+    mp.process("transcode_video", str(media["video"]), str(tmp_path / "c"), timeout=45)  # explícito
+    assert timeouts == [60.0, 30.0, 45]

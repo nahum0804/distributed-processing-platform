@@ -168,6 +168,7 @@ class Worker:
         outputs: list[str] = []
         media_duration_s: float | None = None
         output_bytes = 0
+        encoder: str | None = None
 
         try:
             src = self.storage.download(data["file_path"], in_dir)
@@ -190,6 +191,7 @@ class Worker:
             status = "completed"
             media_duration_s = result.media_duration_s
             output_bytes = result.output_bytes
+            encoder = getattr(result, "encoder", None)
         except StorageError as e:
             status = "failed"
             error = str(e)
@@ -224,6 +226,7 @@ class Worker:
             "processing_s": processing_s,
             "media_duration_s": media_duration_s,
             "output_bytes": output_bytes if status == "completed" else 0,
+            "encoder": encoder,
             "attempts": attempts,
         }
 

@@ -256,18 +256,23 @@ def test_reporter_failure_parks_payload_and_still_srems_inflight(tmp_path):
     assert bool(redis_client.sismember("worker:w1:inflight", "sid1")) is False
 
 
-def test_lazy_processor_import_does_not_crash_construction(tmp_path):
+def test_real_processor_failure_is_reported_with_its_error_type(tmp_path):
+    from src.workers import multimedia_processor as mp
+
     redis_client = fakeredis.FakeRedis(decode_responses=True)
     settings = make_settings(tmp_path)
     storage = FakeStorage()
     worker = Worker(settings, redis_client=redis_client, storage=storage, reporter=StubReporter(),
                      heartbeat_enabled=False)
+    assert worker.processor is mp
 
+    # Seeded bytes are not real media: fails as CorruptInputError with FFmpeg, FFmpegNotAvailableError without.
     seed_subtask(redis_client, storage, "sid1")
     payload = worker.handle_subtask("sid1")
 
     assert payload["status"] == "failed"
-    assert payload["error_type"] == "InternalError"
+    assert issubclass(getattr(mp, payload["error_type"]), mp.ProcessingError)
+    assert payload["encoder"] is None
 
 
 def test_start_with_concurrency_two_processes_in_parallel(tmp_path):

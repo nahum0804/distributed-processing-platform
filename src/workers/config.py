@@ -96,6 +96,7 @@ class Settings:
     dataset_bucket: str = "dataset"
     results_bucket: str = "results"
     worker_id: str = field(default_factory=_default_worker_id)
+    node_name: str = field(default_factory=socket.gethostname)
     worker_queues: tuple[str, ...] = OPERATIONS
     worker_concurrency: int = 1
     work_dir: Path = Path(tempfile.gettempdir()) / "mm-worker"
@@ -139,6 +140,7 @@ class Settings:
             dataset_bucket=_str(env, "DATASET_BUCKET", cls.dataset_bucket),
             results_bucket=_str(env, "RESULTS_BUCKET", cls.results_bucket),
             worker_id=worker_id,
+            node_name=_str(env, "NODE_NAME", socket.gethostname()),
             worker_queues=worker_queues,
             worker_concurrency=worker_concurrency,
             work_dir=work_dir,

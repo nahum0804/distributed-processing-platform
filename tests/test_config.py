@@ -29,6 +29,12 @@ def test_defaults():
     assert s.max_attempts == 3
 
 
+def test_node_name_defaults_to_hostname_and_reads_env(monkeypatch):
+    monkeypatch.setattr("socket.gethostname", lambda: "container-abc")
+    assert Settings.from_env({}).node_name == "container-abc"
+    assert Settings.from_env({"NODE_NAME": "kenni-laptop"}).node_name == "kenni-laptop"
+
+
 def test_env_parsing_basic_types():
     env = {
         "REDIS_HOST": "10.0.0.1",

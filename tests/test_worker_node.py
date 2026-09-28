@@ -44,6 +44,20 @@ def seed_subtask(redis_client, storage, sid, case_id="c1", operation="transcode_
     return key
 
 
+def seed_inflight_leftover(redis_client, sid, *, operation="transcode_video", status="running",
+                            worker_id="w1", attempts=0, case_id="c1", inflight_owner="w1"):
+    redis_client.hset(f"subtask:{sid}", mapping={
+        "subtask_id": sid,
+        "case_id": case_id,
+        "operation": operation,
+        "status": status,
+        "worker_id": worker_id,
+        "attempts": attempts,
+        "assigned_at": "2026-09-27T00:00:00+00:00",
+    })
+    redis_client.sadd(f"worker:{inflight_owner}:inflight", sid)
+
+
 class StubReporter:
     def __init__(self, ok: bool = True):
         self.ok = ok
@@ -327,3 +341,89 @@ def test_start_continues_when_ensure_buckets_raises_storage_error(tmp_path):
     worker, redis_client, storage, processor, reporter = make_worker(tmp_path, storage=FailingStorage())
     worker.start()
     worker.stop(timeout=2)
+
+
+def test_recover_own_inflight_requeues_own_leftover_subtask(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-left", operation="transcode_video", status="running", worker_id="w1")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 1, "failed": 0, "cleaned": 0}
+    data = redis_client.hgetall("subtask:sid-left")
+    assert data["status"] == "queued"
+    assert data["worker_id"] == ""
+    assert data["requeue_reason"] == "worker_restart"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == ["sid-left"]
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_recover_own_inflight_ignores_subtask_owned_by_another_worker(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-other", operation="transcode_video", status="running", worker_id="w2")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 0, "cleaned": 0}
+    data = redis_client.hgetall("subtask:sid-other")
+    assert data["status"] == "running"
+    assert data["worker_id"] == "w2"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_recover_own_inflight_reports_failure_at_max_attempts(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path, MAX_ATTEMPTS="3")
+    seed_inflight_leftover(
+        redis_client, "sid-doomed", operation="extract_audio", status="running", worker_id="w1", attempts=3,
+    )
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 1, "cleaned": 0}
+    assert redis_client.lrange("queue:extract_audio", 0, -1) == []
+    assert redis_client.smembers("worker:w1:inflight") == set()
+
+    assert len(reporter.calls) == 1
+    payload = reporter.calls[0][1]
+    assert payload["subtask_id"] == "sid-doomed"
+    assert payload["host"] == worker.host
+    assert payload["status"] == "failed"
+    assert payload["error_type"] == "WorkerLostError"
+
+
+def test_recover_own_inflight_removes_terminal_leftover_without_recovering(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-done", status="completed", worker_id="w1")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 0, "cleaned": 0}
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_start_calls_recover_own_inflight_before_consumers(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    order: list[str] = []
+    original_recover = worker.recover_own_inflight
+
+    def recover_and_record():
+        result = original_recover()
+        order.append("recover")
+        return result
+
+    def consumer_and_record():
+        order.append("consumer")
+
+    worker.recover_own_inflight = recover_and_record
+    worker._consumer_loop = consumer_and_record
+
+    worker.start()
+    time.sleep(0.05)
+    worker.stop(timeout=2)
+
+    assert order[0] == "recover"
+    assert "consumer" in order

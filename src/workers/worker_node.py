@@ -14,6 +14,7 @@ import redis.exceptions
 
 from src.workers.config import Settings, make_redis
 from src.workers.heartbeat import Heartbeat, WorkerStats
+from src.workers.recovery import ACTIVE_STATES, recover_subtask
 from src.workers.reporter import Reporter
 from src.workers.storage import Storage, StorageError
 
@@ -54,10 +55,19 @@ class Worker:
         self._inflight_key = f"worker:{settings.worker_id}:inflight"
 
     def start(self) -> None:
+        self.recover_own_inflight()
+
         try:
             self.storage.ensure_buckets()
         except StorageError as e:
             logger.warning("no se pudieron asegurar los buckets: %s", e)
+
+        logger.info(
+            "Worker %s iniciado en %s: colas=%s concurrencia=%d hilos_ffmpeg=%d redis=%s:%s coordinador=%s",
+            self.settings.worker_id, self.settings.node_name, ",".join(self.settings.worker_queues),
+            self.settings.worker_concurrency, self.settings.threads_per_job(),
+            self.settings.redis_host, self.settings.redis_port, self.settings.coordinator_url,
+        )
 
         if self.heartbeat_enabled:
             self.heartbeat = Heartbeat(
@@ -83,6 +93,37 @@ class Worker:
             self._flusher.join(timeout)
         if self.heartbeat is not None:
             self.heartbeat.join(timeout)
+
+    def recover_own_inflight(self) -> dict:
+        """Recovers this worker's own leftover inflight subtasks (e.g. a restart with the same worker_id)."""
+        counts = {"requeued": 0, "failed": 0, "cleaned": 0}
+        try:
+            sids = list(self.redis.smembers(self._inflight_key))
+        except Exception as e:
+            logger.warning("no se pudo leer %s al iniciar: %s", self._inflight_key, e)
+            return counts
+
+        for sid in sids:
+            try:
+                data = self.redis.hgetall(f"subtask:{sid}")
+                status = data.get("status") if data else None
+                if data and status in ACTIVE_STATES and data.get("worker_id") == self.settings.worker_id:
+                    result = recover_subtask(
+                        self.redis, self.settings, self.reporter, sid,
+                        reason="worker_restart", reporter_host=self.host,
+                    )
+                    if result in counts:
+                        counts[result] += 1
+            except Exception as e:
+                logger.warning("error recuperando subtarea propia %s al iniciar: %s", sid, e)
+            try:
+                self.redis.srem(self._inflight_key, sid)
+            except Exception as e:
+                logger.warning("no se pudo limpiar %s de %s: %s", sid, self._inflight_key, e)
+
+        if counts["requeued"] or counts["failed"]:
+            logger.warning("worker %s recuperó tareas propias al iniciar: %s", self.settings.worker_id, counts)
+        return counts
 
     def run_forever(self) -> None:
         self.start()

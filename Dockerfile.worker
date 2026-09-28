@@ -1,0 +1,28 @@
+# Imagen unica reutilizada por worker, reaper y coordinador (local compose).
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src ./src
+COPY scripts ./scripts
+
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && mkdir -p /tmp/mm-worker \
+    && chown -R appuser:appuser /app /tmp/mm-worker
+USER appuser
+
+ENV WORK_DIR=/tmp/mm-worker
+
+STOPSIGNAL SIGTERM
+
+CMD ["python", "-m", "src.workers.worker_node"]

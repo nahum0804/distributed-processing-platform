@@ -106,6 +106,8 @@ docker compose ps
 
 Acceso a MinIO (consola web): `http://localhost:9001` (usuario: minioadmin, contraseña: minioadmin)
 
+> **Imagen de MinIO:** MinIO dejó de publicar imágenes públicas en Docker Hub (`minio/minio`) y en Quay, así que el compose usa `cgr.dev/chainguard/minio:latest`, que sí se puede descargar sin login. Si esa imagen dejara de estar disponible, definan otra en `.env` con `MINIO_IMAGE=...`, sin tocar el compose.
+
 ### 4. Instalar dependencias Python e iniciar el coordinador
 
 ```bash
@@ -516,6 +518,7 @@ Para demostrar que las subtareas se procesan distribuidas:
 | Worker muestra contenedor ID como `host` | `NODE_NAME` no configurada | Agregar `NODE_NAME=machine-x` a `.env` |
 | Subtareas quedan en `assigned` indefinidamente | Worker murió; reaper tardará `REAPER_INTERVAL + HEARTBEAT_TTL` en detectar | Reaper requeará después de 15 s (TTL) + 10 s (intervalo) |
 | `reports:pending` crece sin parar | Coordinador caído o no responde en `/subtasks/report` | Iniciar coordinador; revisar logs; verificar `COORDINATOR_URL` |
+| `pull access denied for minio/minio` | La imagen oficial ya no es pública | Usar el compose actual (Chainguard) o `MINIO_IMAGE=...` en `.env` |
 | FFmpeg timeout en subtareas largas | `FFMPEG_TIMEOUT` muy bajo (default 600 s) | Aumentar en `.env`: `FFMPEG_TIMEOUT=1800` |
 
 ## Pruebas automatizadas

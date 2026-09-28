@@ -138,7 +138,7 @@ Estado de vitalidad del worker. El heartbeat escribe cada `HEARTBEAT_INTERVAL` (
 | `completed_count` | int | `142` | Contador acumulado desde startup |
 | `failed_count` | int | `3` | Contador acumulado desde startup |
 | `ffmpeg_version` | str | `"ffmpeg version 5.1.2"` | Primera línea de `ffmpeg -version` o `"unavailable"` |
-| `gpu_encoders` | str | `"h264_nvenc,h264_qsv"` o `"none"` | Codificadores GPU detectados |
+| `gpu_encoders` | str | `"h264_nvenc,h264_qsv"` o `"none"` | Encoders de hardware **compilados** en el build de FFmpeg (`ffmpeg -encoders`). No garantiza que exista la GPU: el FFmpeg de Debian los trae aunque la máquina no tenga GPU. Para saber qué se usó realmente, ver `encoder` en el reporte de cada sub-tarea |
 | `started_at` | str ISO | `"2025-02-14T09:00:00.000000+00:00"` | Timestamp UTC del startup del worker |
 | `last_seen` | str ISO | `"2025-02-14T10:35:10.000000+00:00"` | Timestamp UTC del último heartbeat |
 

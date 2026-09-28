@@ -1,3 +1,4 @@
+import os
 import redis
 import json
 from fastapi import FastAPI, HTTPException
@@ -8,7 +9,12 @@ from datetime import datetime
 
 app = FastAPI(title="Nodo Coordinador - Plataforma Distribuida")
 
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", "6379")),
+    password=os.getenv("REDIS_PASSWORD") or None,
+    decode_responses=True,
+)
 
 class SubTask(BaseModel):
     subtask_id: str
@@ -48,7 +54,9 @@ def create_case(case_req: CaseRequest):
             operation=item["operation"]
         )
         
-        redis_client.hset(f"subtask:{subtask_id}", mapping=subtask.dict())
+        # Redis rejects None values.
+        fields = {k: ("" if v is None else v) for k, v in subtask.model_dump().items()}
+        redis_client.hset(f"subtask:{subtask_id}", mapping=fields)
         
         queue_name = f"queue:{item['operation']}"
         redis_client.rpush(queue_name, subtask_id)

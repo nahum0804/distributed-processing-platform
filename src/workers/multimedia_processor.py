@@ -144,6 +144,12 @@ _NVENC_ERROR_HINTS = ("nvenc", "cuda", "no capable devices")
 # Tiempo máximo para la detección de hardware.
 HW_DETECT_TIMEOUT_S = 15
 
+# Operaciones que reportan progreso real (las demás solo reportan 0 y 100).
+_PROGRESS_OPERATIONS = ("transcode_video", "extract_audio", "convert_audio")
+
+# on_progress se llama como máximo una vez por este intervalo (segundos).
+PROGRESS_INTERVAL_S = 1.0
+
 # Caché de detect_hw_encoders(): ÚNICO estado global mutable del módulo.
 # Se escribe una sola vez por proceso y siempre bajo el Lock.
 _hw_cache: Optional[dict] = None
@@ -222,9 +228,15 @@ def process(
             encoder = None
         else:
             encoder = _choose_encoder(operation, params, name)
+            # Progreso real solo en operaciones que recorren todo el medio (la miniatura
+            # es un solo fotograma). Un único tracker para ambos intentos (NVENC y
+            # respaldo), así el porcentaje nunca retrocede.
+            tracker = _ProgressTracker(
+                on_progress, media_duration if operation in _PROGRESS_OPERATIONS else None
+            )
             try:
                 cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
-                _run(cmd, limit, name)
+                _run(cmd, limit, name, tracker)
             except CorruptInputError as exc:
                 # Respaldo GPU -> CPU: solo si falló NVENC (no el archivo). Un timeout
                 # no es CorruptInputError, así que nunca dispara el respaldo.
@@ -234,7 +246,7 @@ def process(
                 _remove_quietly(dst)
                 encoder = "libx264"
                 cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
-                _run(cmd, limit, name)
+                _run(cmd, limit, name, tracker)
         _verify_output(dst, name)
     except BaseException:
         _remove_quietly(dst)
@@ -443,43 +455,99 @@ def _build_command(
 
 
 # ---------- Ejecución de FFmpeg ----------
-def _run(cmd: list[str], timeout: float, name: str) -> str:
+class _ProgressTracker:
+    """Convierte las líneas de `-progress` de FFmpeg en llamadas a `on_progress`.
+
+    Cada llamada a process() crea el suyo (no hay estado compartido entre hilos).
+    Garantías: como máximo una llamada por `interval` segundos, valores entre 0 y
+    100 que nunca decrecen, y nunca 100: el 100 lo envía process() cuando la
+    salida ya está verificada.
+    """
+
+    def __init__(self, on_progress, duration, clock=time.monotonic, interval=PROGRESS_INTERVAL_S):
+        self.on_progress = on_progress
+        self.duration = duration if duration and duration > 0 else None
+        self.clock = clock
+        self.interval = interval
+        self.last_value = 0.0      # process() ya envió el 0
+        self.last_time = clock()
+
+    def feed(self, line: str) -> None:
+        """Procesa una línea "clave=valor" de FFmpeg (solo interesa out_time_us)."""
+        if self.on_progress is None or self.duration is None:
+            return
+        key, _, value = line.strip().partition("=")
+        if key != "out_time_us":
+            return
+        try:
+            seconds = int(value) / 1e6
+        except ValueError:
+            return  # al inicio FFmpeg puede escribir "N/A"
+        percent = min(max(seconds / self.duration * 100, 0.0), 99.9)
+        now = self.clock()
+        if percent <= self.last_value or now - self.last_time < self.interval:
+            return
+        self.last_value, self.last_time = percent, now
+        _notify(self.on_progress, round(percent, 1))
+
+
+def _run(cmd: list[str], timeout: float, name: str, tracker: Optional[_ProgressTracker] = None) -> str:
     """Ejecuta FFmpeg como proceso hijo y espera a que termine.
 
-    - stdout va a DEVNULL y stderr a un archivo temporal (no a un PIPE): si
-      FFmpeg escribe mucho en un pipe que nadie lee, el buffer se llena y el
-      proceso se queda bloqueado.
-    - Si se supera `timeout`, se mata el proceso (kill) y se espera a que muera.
+    - stdout es un PIPE por el que FFmpeg escribe su progreso (`-progress pipe:1`).
+      Este mismo hilo (el que llamó a process()) lo lee línea por línea hasta
+      que FFmpeg lo cierra al terminar, y así el pipe nunca se llena.
+    - stderr va a un archivo temporal (no a otro PIPE): como estamos leyendo
+      stdout, nadie leería el stderr; si su buffer se llenara, FFmpeg se bloquearía.
+    - Como el hilo está ocupado leyendo, el timeout lo aplica un `threading.Timer`
+      que mata al proceso (kill). Al morir FFmpeg se cierra el pipe, la lectura
+      termina y se lanza ProcessingTimeoutError.
     - Devuelve el stderr completo. Si el código de salida no es 0, lanza
       CorruptInputError con la cola del stderr; el stderr completo queda en el
-      atributo `stderr` de la excepción (lo usará la P2-a para detectar fallos de NVENC).
+      atributo `stderr` de la excepción (sirve para detectar fallos de NVENC).
     """
-    # TODO P2-c: agregar "-progress pipe:1 -nostats" y leer stdout para el progreso real.
+    # -progress pipe:1: bloques "clave=valor" por stdout (out_time_us, speed, progress=end...).
+    # -nostats: quita la línea de estado que FFmpeg escribe en stderr.
+    cmd = [cmd[0], "-progress", "pipe:1", "-nostats", *cmd[1:]]
+    tracker = tracker or _ProgressTracker(None, None)
+    timed_out = threading.Event()
+
     with tempfile.TemporaryFile() as err_file:
         try:
             proc = subprocess.Popen(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=err_file
+                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file
             )
         except FileNotFoundError as exc:
             raise FFmpegNotAvailableError("ffmpeg no está instalado o no está en el PATH") from exc
         except OSError as exc:
             raise ProcessingError(f"{name}: no se pudo iniciar FFmpeg ({exc})") from exc
 
+        def _kill_on_timeout() -> None:
+            timed_out.set()
+            proc.kill()
+
+        timer = threading.Timer(timeout, _kill_on_timeout)
+        timer.daemon = True
+        timer.start()
         try:
-            returncode = proc.wait(timeout=timeout)
-        except BaseException as exc:
-            # Timeout (o Ctrl+C): matar al hijo y esperar para que no quede vivo.
+            with proc.stdout:
+                for raw_line in proc.stdout:  # termina cuando FFmpeg cierra stdout (fin o kill)
+                    tracker.feed(raw_line.decode("utf-8", errors="replace"))
+            returncode = proc.wait()  # recoger el código de salida (sin zombis)
+        except BaseException:
+            # Ctrl+C u otro error inesperado: que no quede el hijo vivo.
             proc.kill()
             proc.wait()
-            if isinstance(exc, subprocess.TimeoutExpired):
-                raise ProcessingTimeoutError(
-                    f"{name}: FFmpeg superó el tiempo límite de {timeout:g} s"
-                ) from None
             raise
+        finally:
+            timer.cancel()
 
         err_file.seek(0)
         stderr = err_file.read().decode("utf-8", errors="replace")
 
+    # Si FFmpeg terminó bien justo cuando saltaba el Timer, el resultado vale.
+    if timed_out.is_set() and returncode != 0:
+        raise ProcessingTimeoutError(f"{name}: FFmpeg superó el tiempo límite de {timeout:g} s")
     if returncode != 0:
         error = CorruptInputError(
             f"{name}: FFmpeg falló (código {returncode}): {_stderr_tail(stderr)}"

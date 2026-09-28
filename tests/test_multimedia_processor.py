@@ -450,3 +450,85 @@ def test_detect_hw_encoders_nunca_lanza(monkeypatch):
     monkeypatch.setattr(mp, "_hw_cache", None)
     monkeypatch.setattr(subprocess, "run", run_roto)
     assert mp.detect_hw_encoders() == {"nvenc": False, "gpu_name": None}
+
+
+# ---------- P2-c: progreso real ----------
+class RelojFalso:
+    """Reloj controlado por la prueba, para no depender del tiempo real."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def test_tracker_limita_a_una_vez_por_segundo_y_no_decrece():
+    valores = []
+    reloj = RelojFalso()
+    tracker = mp._ProgressTracker(valores.append, duration=10.0, clock=reloj)
+
+    reloj.t = 0.5
+    tracker.feed("out_time_us=2000000\n")   # < 1 s desde el inicio: se descarta
+    reloj.t = 1.1
+    tracker.feed("out_time_us=3000000\n")   # 30 %
+    reloj.t = 1.5
+    tracker.feed("out_time_us=4000000\n")   # < 1 s desde el anterior: se descarta
+    reloj.t = 2.2
+    tracker.feed("out_time_us=N/A\n")       # valor no numérico: se ignora
+    tracker.feed("speed=2.0x\n")            # otra clave: se ignora
+    tracker.feed("out_time_us=1000000\n")   # retrocede: se descarta
+    reloj.t = 3.3
+    tracker.feed("out_time_us=50000000\n")  # supera la duración: se limita a 99.9
+
+    assert valores == [30.0, 99.9]
+
+
+def test_tracker_sin_duracion_no_reporta():
+    valores = []
+    reloj = RelojFalso()
+    tracker = mp._ProgressTracker(valores.append, duration=None, clock=reloj)
+    reloj.t = 5
+    tracker.feed("out_time_us=1000000\n")
+    assert valores == []
+
+
+def test_progreso_real_en_transcode(media, tmp_path):
+    import time
+
+    eventos = []  # (instante, valor)
+    result = mp.process(
+        "transcode_video", str(media["largo"]), str(tmp_path),
+        params={"preset": "medium"}, threads=2,
+        on_progress=lambda p: eventos.append((time.monotonic(), p)),
+    )
+    valores = [v for _, v in eventos]
+    assert valores[0] == 0.0 and valores[-1] == 100.0
+    assert all(0.0 <= v <= 100.0 for v in valores)
+    assert valores == sorted(valores), "el progreso nunca debe retroceder"
+    intermedios = eventos[1:-1]
+    # Entre dos reportes intermedios pasa al menos ~1 s.
+    for (t1, _), (t2, _) in zip(intermedios, intermedios[1:]):
+        assert t2 - t1 >= 0.9
+    if result.duration_s > 2.5:
+        assert intermedios, "una transcodificación larga debe reportar progreso intermedio"
+
+
+def test_miniatura_solo_reporta_0_y_100(media, tmp_path):
+    valores = []
+    mp.process("generate_thumbnail", str(media["largo"]), str(tmp_path), on_progress=valores.append)
+    assert valores == [0.0, 100.0]
+
+
+def test_ffmpeg_recibe_progress_pipe(media, tmp_path, monkeypatch):
+    comandos = []
+    real_popen = subprocess.Popen
+
+    def popen_espia(cmd, *args, **kwargs):
+        comandos.append(cmd)
+        return real_popen(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", popen_espia)
+    mp.process("convert_audio", str(media["wav"]), str(tmp_path))
+    ffmpeg_cmd = next(c for c in comandos if c[0] == "ffmpeg")
+    assert ffmpeg_cmd[1:4] == ["-progress", "pipe:1", "-nostats"]

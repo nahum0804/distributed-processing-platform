@@ -34,7 +34,14 @@ Opciones comunes a todos los comandos de FFmpeg:
 | `-y` | Sobrescribe la salida si ya existe, sin preguntar. |
 | `-threads N` | Solo si el worker pasa `threads`. Limita los hilos del encoder para repartir la CPU entre sub-tareas. |
 
-Además, el proceso se lanza con `stdin` en `DEVNULL` (FFmpeg no espera teclas) y `stdout` en `DEVNULL`.
+El ejecutor agrega además, justo después de `ffmpeg`:
+
+| Opción | Significado |
+|---|---|
+| `-progress pipe:1` | FFmpeg escribe su avance por stdout (descriptor 1) en bloques `clave=valor` (`out_time_us=…`, `speed=…`, `progress=continue/end`). |
+| `-nostats` | Quita la línea de estado que FFmpeg escribe en stderr. |
+
+El proceso se lanza con `stdin` en `DEVNULL` (FFmpeg no espera teclas), `stdout` en un pipe que lee el propio `process()` y `stderr` en un archivo temporal.
 
 ### 2.1 `transcode_video`
 
@@ -162,17 +169,26 @@ En `CorruptInputError` el mensaje trae la **cola del stderr** de FFmpeg (última
 
 ## 5. Timeout y `threads`
 
-**Timeout.** Si `timeout` es `None` (lo normal), rige `DEFAULT_TIMEOUT_S = 600` s. Solo llega un número si Dev 2 define `FFMPEG_TIMEOUT`. Al vencer:
-1. se mata el proceso FFmpeg (`proc.kill()`: `TerminateProcess` en Windows, `SIGKILL` en Linux);
-2. se espera a que termine (`proc.wait()`), para que no quede ningún proceso vivo (ni zombi en Linux);
+**Timeout.** Si `timeout` es `None` (lo normal), rige `DEFAULT_TIMEOUT_S = 600` s. Solo llega un número si Dev 2 define `FFMPEG_TIMEOUT`. Mientras FFmpeg corre, el hilo que llamó a `process()` está leyendo el progreso, así que el tiempo lo vigila un `threading.Timer`. Al vencer:
+1. el Timer marca un `threading.Event` y mata el proceso FFmpeg (`proc.kill()`: `TerminateProcess` en Windows, `SIGKILL` en Linux);
+2. al morir FFmpeg se cierra el pipe de stdout, la lectura termina y `proc.wait()` recoge el código de salida, así que no queda ningún proceso vivo (ni zombi en Linux);
 3. se borra la salida parcial;
-4. se lanza `ProcessingTimeoutError`.
+4. como el Event quedó marcado, se lanza `ProcessingTimeoutError`.
+
+Si FFmpeg termina bien justo en el instante en que salta el Timer (código 0), el resultado se da por válido.
 
 La P2-d cambiará el default por un valor proporcional a la duración del medio (tope 1800 s).
 
+**Progreso.** `on_progress` recibe `0.0` al empezar y `100.0` cuando la salida ya está verificada. En `transcode_video`, `extract_audio` y `convert_audio`, además, se lee `out_time_us` del pipe de progreso y se calcula `out_time_us / 1e6 / duración × 100`:
+- como máximo una llamada por segundo;
+- valores entre 0 y 99.9 que nunca decrecen (tampoco al reintentar con CPU después de un fallo de NVENC);
+- el 100 solo lo envía `process()` al final.
+
+`generate_thumbnail` y `extract_metadata` reportan solo 0 y 100, y si la duración es desconocida no hay progreso intermedio.
+
 **Threads.** El worker pasa `threads = max(1, os.process_cpu_count() // WORKER_CONCURRENCY)`, y el módulo agrega `-threads N` a FFmpeg. Así, si un nodo corre varias sub-tareas a la vez, cada proceso FFmpeg usa su parte de los núcleos en lugar de competir todos por todos. Un valor inválido (0, negativo, texto) se ignora y FFmpeg decide.
 
-**Concurrencia.** `process()` se puede llamar desde varios hilos a la vez: cada llamada lanza su propio proceso FFmpeg y usa su propio archivo temporal para el stderr. No hay variables globales que cambien ni `os.chdir`. `on_progress` se ejecuta siempre en el hilo que llamó a `process()`; si lanza una excepción, se ignora.
+**Concurrencia.** `process()` se puede llamar desde varios hilos a la vez: cada llamada lanza su propio proceso FFmpeg, usa su propio archivo temporal para el stderr y tiene su propio contador de progreso y su propio Timer. No hay variables globales que cambien (salvo la caché de GPU, protegida con `Lock`) ni `os.chdir`. `on_progress` se ejecuta siempre en el hilo que llamó a `process()`, nunca en el hilo del Timer; si lanza una excepción, se ignora.
 
 ## 6. Política de GPU
 

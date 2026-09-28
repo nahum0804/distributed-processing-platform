@@ -221,8 +221,21 @@ py src\workers\multimedia_processor.py --detect-gpu
 
 Si tiene éxito imprime `OK` y el `ProcessResult` en JSON; si falla imprime `FALLÓ [NombreExcepcion]: mensaje` y sale con código 1. Sin argumentos muestra la ayuda.
 
-**Benchmark CPU vs GPU:** pendiente de la P2-b (`benchmarks/benchmark_transcode.py`).
+**Benchmark CPU vs GPU** (`benchmarks/benchmark_transcode.py`, script independiente, no es una prueba de pytest):
+
+```powershell
+py benchmarks\benchmark_transcode.py --generate 60 --runs 3        # video sintético 1920x1080 de 60 s
+py benchmarks\benchmark_transcode.py --input <video> --runs 3      # un video propio
+```
+
+Opciones: `--threads N` (por defecto FFmpeg usa todos los núcleos), `--timeout S` (por defecto 3600 por corrida) y `--output archivo.md`.
+
+- Transcodifica el mismo archivo con `libx264` (`fast` y `medium`) y con `h264_nvenc` (`p4`), N veces cada uno, llamando a `mp.process()`. Si NVENC no funciona, la fila de GPU sale como "omitido". Si el respaldo a CPU se activara a mitad del benchmark, la configuración también se omite, para no mezclar números.
+- Mide el tiempo promedio y la desviación estándar, la velocidad relativa al tiempo real (duración del video / tiempo de procesamiento), el tamaño de la salida y el **tiempo de CPU de los procesos FFmpeg**:
+  - en Linux, con `resource.getrusage(RUSAGE_CHILDREN)`;
+  - en Windows, sin `psutil`: intercepta los `Popen` y consulta `GetProcessTimes` de `kernel32` con `ctypes`.
+- Imprime la tabla en Markdown y la guarda en `benchmarks/resultados_<fecha>.md`.
 
 ## 8. Resultados del benchmark CPU vs GPU
 
-Pendiente de la P2-b.
+Pendiente de ejecutar cuando el driver NVIDIA esté en la versión 610 o superior (sección 6). Aquí se pegará la tabla de `benchmarks/resultados_<fecha>.md`.

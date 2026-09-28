@@ -1,9 +1,6 @@
-# Compose para la maquina A: coordinador (nativo, ver README) + redis + minio + reaper.
-# NOTA: src/coordinator/main.py hoy usa redis_client = redis.Redis(host='localhost', ...)
-# hardcodeado. Cuando su dueno lo cambie a REDIS_HOST/REDIS_PORT/REDIS_PASSWORD (env vars,
-# igual que src/workers/config.py), el coordinador tambien podra correr como servicio
-# "coordinator" en este compose apuntando a REDIS_HOST=redis. Por ahora se sigue ejecutando
-# nativo con: python -m uvicorn src.coordinator.main:app --host 0.0.0.0 --port 8000
+# Compose para la maquina A: redis + minio + reaper. El coordinador corre nativo y lee
+# REDIS_HOST/REDIS_PORT/REDIS_PASSWORD del mismo .env:
+#   python -m uvicorn src.coordinator.main:app --host 0.0.0.0 --port 8000 --env-file .env
 
 services:
   redis:

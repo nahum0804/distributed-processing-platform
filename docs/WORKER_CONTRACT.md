@@ -330,7 +330,8 @@ print(f"Reportes pendientes de envío: {pending_count}")
 El coordinador debe:
 
 1. **Ser idempotente:** ignorar un reporte si el `subtask_id` ya está terminal (completado o fallido)
-2. **Leer configuración desde env:** usar `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` (no hardcodear `localhost`)
-3. **Guardar campos de reporte:** almacenar `processing_s`, `media_duration_s`, `output_bytes`, `encoder`, `attempts` para dashboard
+2. **Leer configuración desde env:** ya hecho (PR #3): lee `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`; se ejecuta con `uvicorn ... --env-file .env`
+3. **Guardar campos de reporte:** almacenar `error_type`, `outputs`, `host`, `started_at`, `finished_at`, `processing_s`, `media_duration_s`, `output_bytes`, `encoder`, `attempts` (hoy solo guarda `status`, `result_path`, `error` y `worker_id`); el reporte consolidado por caso los necesita
 4. **Aceptar parámetros opcionales:** en `POST /cases/`, aceptar `params` JSON opcional por archivo (`{"height": 720, "preset": "fast"}`)
 5. **Manejo de path y parámetros:** aceptar `file_path` como clave MinIO; soportar `params` opcional en la request
+6. **Crear el caso de forma atómica:** hoy `POST /cases/` escribe `case:{id}` antes de las sub-tareas; si falla a mitad, queda un caso huérfano en `queued` con 0 sub-tareas. Conviene usar un pipeline de Redis (MULTI/EXEC) o escribir el caso al final

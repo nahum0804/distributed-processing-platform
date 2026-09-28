@@ -1,0 +1,104 @@
+# Compose para probar todo el sistema en UNA sola maquina (integracion F2):
+# redis + minio + coordinator + reaper + 3 workers, todo con valores por defecto
+# (no requiere .env; usa las mismas variables que .env.example con fallback ${VAR:-default}).
+#
+# NOTA: asume que el coordinador ya lee REDIS_HOST/REDIS_PORT/REDIS_PASSWORD por env
+# (ver comentario en el docker-compose.yml raiz); mientras tanto este archivo sirve de
+# referencia de la topologia final.
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-localdev}", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-localdev}
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  coordinator:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    command: ["python", "-m", "uvicorn", "src.coordinator.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-localdev}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  reaper:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    command: ["python", "-m", "scripts.reaper"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-localdev}
+      COORDINATOR_URL: http://coordinator:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    deploy:
+      replicas: 3
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-localdev}
+      COORDINATOR_URL: http://coordinator:8000
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      WORKER_CONCURRENCY: 1
+      HEARTBEAT_INTERVAL: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
+    restart: unless-stopped

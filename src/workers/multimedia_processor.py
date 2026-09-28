@@ -12,9 +12,12 @@ Garantías principales:
   su propio proceso FFmpeg y sus propios temporales (`tempfile`).
 - `on_progress` se ejecuta siempre en el hilo que llamó a `process()`.
 - Si algo falla no quedan salidas parciales en `out_dir`.
+- `transcode_video` puede usar la GPU (NVENC) con `params={"hwaccel": "nvenc"}`;
+  si NVENC no está disponible o falla, se reintenta automáticamente en la CPU.
 
 Uso por línea de comandos (pruebas manuales):
-    py src\\workers\\multimedia_processor.py <operacion> <entrada> <carpeta_salida> [--threads N] [--timeout S]
+    py src\\workers\\multimedia_processor.py <operacion> <entrada> <carpeta_salida> [--threads N] [--timeout S] [--hwaccel nvenc]
+    py src\\workers\\multimedia_processor.py --detect-gpu
 """
 
 import argparse
@@ -25,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -117,6 +121,34 @@ _KEEP_EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 # Opciones comunes a todos los comandos de FFmpeg.
 _FFMPEG_BASE = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
 
+# ---------- GPU (NVENC) ----------
+# Encoder H.264 por hardware de NVIDIA. Es una constante (no cambia en ejecución);
+# las pruebas la reemplazan por un nombre inexistente para simular un fallo de NVENC.
+_NVENC_ENCODER = "h264_nvenc"
+
+# Preset de NVENC por defecto (p1 = más rápido ... p7 = mejor calidad).
+DEFAULT_NVENC_PRESET = "p4"
+
+# Equivalencia aproximada entre presets de x264 y de NVENC.
+_X264_TO_NVENC_PRESET = {
+    "ultrafast": "p1", "superfast": "p1", "veryfast": "p2",
+    "faster": "p3", "fast": "p3",
+    "medium": "p4",
+    "slow": "p5",
+    "slower": "p6", "veryslow": "p7", "placebo": "p7",
+}
+
+# Textos del stderr que indican que el fallo fue de NVENC (y no del archivo).
+_NVENC_ERROR_HINTS = ("nvenc", "cuda", "no capable devices")
+
+# Tiempo máximo para la detección de hardware.
+HW_DETECT_TIMEOUT_S = 15
+
+# Caché de detect_hw_encoders(): ÚNICO estado global mutable del módulo.
+# Se escribe una sola vez por proceso y siempre bajo el Lock.
+_hw_cache: Optional[dict] = None
+_hw_lock = threading.Lock()
+
 
 # ---------- Resultado ----------
 @dataclass
@@ -189,11 +221,20 @@ def process(
             _write_metadata(media_info, dst, name)
             encoder = None
         else:
-            encoder = _DEFAULT_ENCODER[operation]
-            # TODO P2-a: si params["hwaccel"] == "nvenc" y hay NVENC, usar "h264_nvenc"
-            #            con respaldo automático a libx264.
-            cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
-            _run(cmd, limit, name)
+            encoder = _choose_encoder(operation, params, name)
+            try:
+                cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
+                _run(cmd, limit, name)
+            except CorruptInputError as exc:
+                # Respaldo GPU -> CPU: solo si falló NVENC (no el archivo). Un timeout
+                # no es CorruptInputError, así que nunca dispara el respaldo.
+                if encoder != _NVENC_ENCODER or not _is_nvenc_failure(getattr(exc, "stderr", "")):
+                    raise
+                logger.warning("%s: NVENC falló, se reintenta con libx264 (%s)", name, exc)
+                _remove_quietly(dst)
+                encoder = "libx264"
+                cmd = _build_command(operation, str(src_path), str(dst), params, threads, media_info, encoder)
+                _run(cmd, limit, name)
         _verify_output(dst, name)
     except BaseException:
         _remove_quietly(dst)
@@ -259,7 +300,70 @@ def detect_hw_encoders() -> dict:
     """Detecta qué encoders por hardware FUNCIONAN de verdad en esta máquina.
     Devuelve, por ejemplo: {"nvenc": True, "gpu_name": "NVIDIA GeForce RTX 5060 Ti"}.
     El resultado se cachea. Dev 2 lo puede usar en el heartbeat (campo `gpu`)."""
-    raise NotImplementedError("detect_hw_encoders() se implementa en la P2-a")
+    global _hw_cache
+    # El Lock garantiza que, aunque varios hilos llamen a la vez, la detección
+    # se haga una sola vez y nadie lea la caché a medio escribir.
+    with _hw_lock:
+        if _hw_cache is None:
+            _hw_cache = _detect_hw_uncached()
+        return dict(_hw_cache)  # copia: quien llama no puede modificar la caché
+
+
+def _detect_hw_uncached() -> dict:
+    """Detección real (sin caché). Nunca lanza excepciones: ante cualquier error, nvenc = False.
+
+    No se confía en `ffmpeg -encoders`: el build de FFmpeg lista h264_nvenc aunque
+    no haya GPU o el driver no sirva. Por eso se codifica un fotograma de verdad.
+    """
+    result = {"nvenc": False, "gpu_name": None}
+    try:
+        if shutil.which("ffmpeg"):
+            completed = subprocess.run(
+                [
+                    "ffmpeg", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "color=black:s=256x256:d=0.1",
+                    "-frames:v", "1", "-c:v", _NVENC_ENCODER, "-f", "null", "-",
+                ],
+                stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+            )
+            result["nvenc"] = completed.returncode == 0
+            if not result["nvenc"]:
+                logger.info("NVENC no disponible: %s",
+                            _stderr_tail(completed.stderr.decode("utf-8", errors="replace")))
+    except Exception:
+        logger.info("no se pudo detectar NVENC", exc_info=True)
+
+    try:
+        if shutil.which("nvidia-smi"):
+            completed = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+            )
+            lines = completed.stdout.decode("utf-8", errors="replace").strip().splitlines()
+            if completed.returncode == 0 and lines:
+                result["gpu_name"] = lines[0].strip() or None
+    except Exception:
+        logger.info("no se pudo obtener el nombre de la GPU", exc_info=True)
+
+    # TODO: QSV (Intel) y AMF (AMD) están en el build de FFmpeg, pero el nodo
+    # especializado es NVIDIA; se detectarían igual, con una codificación real.
+    return result
+
+
+def _choose_encoder(operation: str, params: dict, name: str) -> Optional[str]:
+    """Encoder a usar. NVENC solo si se pide con hwaccel="nvenc" y funciona en esta máquina."""
+    encoder = _DEFAULT_ENCODER[operation]
+    if operation == "transcode_video" and params.get("hwaccel") == "nvenc":
+        if detect_hw_encoders()["nvenc"]:
+            return _NVENC_ENCODER
+        logger.warning("%s: se pidió NVENC pero no está disponible, se usa libx264", name)
+    return encoder
+
+
+def _is_nvenc_failure(stderr: str) -> bool:
+    """True si el stderr de FFmpeg indica que el problema fue NVENC/CUDA."""
+    text = stderr.lower()
+    return any(hint in text for hint in _NVENC_ERROR_HINTS)
 
 
 # ---------- Construcción de comandos ----------
@@ -287,10 +391,24 @@ def _build_command(
         if height is not None and height % 2 != 0:
             height = None  # H.264 necesita alto par: un valor impar se ignora.
 
+        if encoder == _NVENC_ENCODER:
+            # Con NVENC la CPU solo decodifica y escala: -threads va como opción
+            # de ENTRADA (decodificador) y -filter_threads limita los filtros.
+            if threads is not None:
+                cmd += ["-threads", str(threads), "-filter_threads", str(threads)]
+                threads = None  # ya aplicado; no repetirlo como opción de salida
         cmd += ["-i", src]
         cmd += ["-vf", f"scale=-2:{height}" if height else _KEEP_EVEN_SIZE]
-        # TODO P2-a: rama "h264_nvenc" (-preset pN -rc vbr -cq {crf} -b:v 0).
-        cmd += ["-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p"]
+        if encoder == _NVENC_ENCODER:
+            # Sin preset explícito se usa p4; si viene uno de x264, se traduce.
+            nvenc_preset = _X264_TO_NVENC_PRESET.get(params.get("preset"), DEFAULT_NVENC_PRESET)
+            cq = max(crf, 1)  # en NVENC, -cq 0 significa "automático", no "sin pérdida"
+            cmd += [
+                "-c:v", _NVENC_ENCODER, "-preset", nvenc_preset,
+                "-rc", "vbr", "-cq", str(cq), "-b:v", "0", "-pix_fmt", "yuv420p",
+            ]
+        else:
+            cmd += ["-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p"]
         if _has_audio(media_info):
             cmd += ["-c:a", "aac", "-b:a", "128k"]
         else:
@@ -556,11 +674,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Procesador multimedia (FFmpeg). Operaciones: " + ", ".join(SUPPORTED_OPERATIONS),
     )
-    parser.add_argument("operacion", help="una de: " + ", ".join(SUPPORTED_OPERATIONS))
-    parser.add_argument("entrada", help="archivo de entrada (ruta local)")
-    parser.add_argument("carpeta_salida", help="carpeta donde se dejan los resultados")
+    parser.add_argument("operacion", nargs="?", help="una de: " + ", ".join(SUPPORTED_OPERATIONS))
+    parser.add_argument("entrada", nargs="?", help="archivo de entrada (ruta local)")
+    parser.add_argument("carpeta_salida", nargs="?", help="carpeta donde se dejan los resultados")
     parser.add_argument("--threads", type=int, default=None, help="hilos para FFmpeg")
     parser.add_argument("--timeout", type=float, default=None, help="tiempo máximo en segundos")
+    parser.add_argument("--hwaccel", choices=["nvenc"], default=None,
+                        help="usar la GPU en transcode_video (con respaldo a CPU)")
+    parser.add_argument("--detect-gpu", action="store_true",
+                        help="solo mostrar el resultado de detect_hw_encoders()")
     parser.add_argument(
         "-p", "--param", action="append", type=_parse_param, default=[],
         metavar="CLAVE=VALOR", help="parámetro de la operación (repetible), p. ej. -p crf=28",
@@ -573,10 +695,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
     args = parser.parse_args(argv)
 
+    if args.detect_gpu:
+        print(json.dumps(detect_hw_encoders(), indent=2, ensure_ascii=False))
+        return 0
+    if args.carpeta_salida is None:
+        parser.error("faltan argumentos: <operacion> <entrada> <carpeta_salida>")
+
+    params = dict(args.param)
+    if args.hwaccel:
+        params["hwaccel"] = args.hwaccel
+
     try:
         result = process(
             args.operacion, args.entrada, args.carpeta_salida,
-            params=dict(args.param),
+            params=params,
             on_progress=lambda p: print(f"  progreso: {p:.0f} %"),
             threads=args.threads,
             timeout=args.timeout,
@@ -594,4 +726,6 @@ if __name__ == "__main__":
     # En Windows la consola puede no ser UTF-8: evitar errores al imprimir acentos.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    # Mostrar los avisos (p. ej. el respaldo GPU -> CPU) en la terminal.
+    logging.basicConfig(level=logging.WARNING, format="[%(levelname)s] %(message)s")
     sys.exit(main())

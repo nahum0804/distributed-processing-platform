@@ -333,3 +333,120 @@ def test_tres_llamadas_en_paralelo(media, tmp_path):
     for (result, hilo_llamador, hilos_callback), (_, _, nombre) in zip(resultados, trabajos):
         _check_result(result, tmp_path / nombre)
         assert hilos_callback and all(h == hilo_llamador for h in hilos_callback)
+
+
+# ---------- P2-a: NVENC con respaldo a CPU ----------
+HAS_NVENC = HAS_FFMPEG and mp.detect_hw_encoders()["nvenc"]
+requires_nvenc = pytest.mark.skipif(not HAS_NVENC, reason="sin NVENC")
+
+
+@requires_nvenc
+def test_nvenc_transcode(media, tmp_path):
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    out = _check_result(result, tmp_path)
+    assert result.encoder == "h264_nvenc"
+    info = mp.probe(str(out))
+    assert _stream(info, "video")["codec_name"] == "h264"
+    assert abs(float(info["format"]["duration"]) - 3.0) <= 0.5
+
+
+@requires_nvenc
+def test_nvenc_height_120(media, tmp_path):
+    result = mp.process(
+        "transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc", "height": 120}
+    )
+    assert result.encoder == "h264_nvenc"
+    assert _stream(mp.probe(result.outputs[0]), "video")["height"] == 120
+
+
+def test_respaldo_a_cpu_si_nvenc_falla(media, tmp_path, monkeypatch, caplog):
+    # Simula una GPU "detectada" cuyo encoder falla: el nombre no existe en FFmpeg,
+    # así que FFmpeg termina con error y el stderr menciona "nvenc". Corre en cualquier máquina.
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": True, "gpu_name": "GPU falsa"})
+    monkeypatch.setattr(mp, "_NVENC_ENCODER", "h264_nvenc_inexistente")
+    with caplog.at_level("WARNING", logger=mp.__name__):
+        result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    out = _check_result(result, tmp_path)
+    assert result.encoder == "libx264"
+    assert _stream(mp.probe(str(out)), "video")["codec_name"] == "h264"
+    assert "se reintenta con libx264" in caplog.text
+
+
+def test_respaldo_a_cpu_si_no_hay_nvenc(media, tmp_path, monkeypatch):
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": False, "gpu_name": None})
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    assert result.encoder == "libx264"
+
+
+def test_timeout_con_nvenc_no_dispara_respaldo(media, tmp_path, monkeypatch):
+    llamadas = []
+
+    def run_que_expira(cmd, timeout, name, *args, **kwargs):
+        llamadas.append(cmd)
+        raise mp.ProcessingTimeoutError(f"{name}: FFmpeg superó el tiempo límite")
+
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": True, "gpu_name": None})
+    monkeypatch.setattr(mp, "_run", run_que_expira)
+    with pytest.raises(mp.ProcessingTimeoutError):
+        mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    assert len(llamadas) == 1 and "h264_nvenc" in llamadas[0]
+
+
+def test_hwaccel_desconocido_usa_cpu(media, tmp_path, monkeypatch):
+    def no_llamar():
+        raise AssertionError("no debería detectar GPU con un hwaccel desconocido")
+
+    monkeypatch.setattr(mp, "detect_hw_encoders", no_llamar)
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "vulkan"})
+    assert result.encoder == "libx264"
+
+
+def test_comando_nvenc():
+    cmd = mp._build_command("transcode_video", "in.mp4", "out.mp4", {"crf": 20}, 2, INFO_AV, "h264_nvenc")
+    assert cmd[cmd.index("-c:v") + 1] == "h264_nvenc"
+    assert cmd[cmd.index("-preset") + 1] == "p4"  # sin preset explícito
+    assert cmd[cmd.index("-cq") + 1] == "20"
+    assert cmd[cmd.index("-rc") + 1] == "vbr" and cmd[cmd.index("-b:v") + 1] == "0"
+    # -threads va antes de -i (decodificación) junto con -filter_threads.
+    assert cmd.index("-threads") < cmd.index("-i")
+    assert cmd[cmd.index("-filter_threads") + 1] == "2"
+    assert "libx264" not in cmd
+
+
+@pytest.mark.parametrize(
+    "preset, esperado",
+    [("ultrafast", "p1"), ("veryfast", "p2"), ("fast", "p3"), ("medium", "p4"),
+     ("slow", "p5"), ("slower", "p6"), ("veryslow", "p7"), ("invalido", "p4")],
+)
+def test_presets_nvenc(preset, esperado):
+    cmd = mp._build_command("transcode_video", "in.mp4", "out.mp4", {"preset": preset}, None, INFO_AV, "h264_nvenc")
+    assert cmd[cmd.index("-preset") + 1] == esperado
+
+
+def test_detect_hw_encoders_y_cache(monkeypatch):
+    if not HAS_FFMPEG:
+        pytest.skip("FFmpeg/ffprobe no están instalados o no están en el PATH")
+    llamadas_ffmpeg = []
+    real_run = subprocess.run
+
+    def run_espia(cmd, *args, **kwargs):
+        if cmd[0] == "ffmpeg":
+            llamadas_ffmpeg.append(cmd)
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(mp, "_hw_cache", None)  # empezar sin caché
+    monkeypatch.setattr(subprocess, "run", run_espia)
+    primero = mp.detect_hw_encoders()
+    segundo = mp.detect_hw_encoders()
+    assert isinstance(primero["nvenc"], bool) and "gpu_name" in primero
+    assert primero == segundo
+    assert len(llamadas_ffmpeg) == 1, "la segunda llamada debe usar la caché"
+
+
+def test_detect_hw_encoders_nunca_lanza(monkeypatch):
+    def run_roto(*args, **kwargs):
+        raise OSError("fallo simulado")
+
+    monkeypatch.setattr(mp, "_hw_cache", None)
+    monkeypatch.setattr(subprocess, "run", run_roto)
+    assert mp.detect_hw_encoders() == {"nvenc": False, "gpu_name": None}

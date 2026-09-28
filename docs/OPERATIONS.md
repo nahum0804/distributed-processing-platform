@@ -59,21 +59,27 @@ ffmpeg -hide_banner -loglevel error -y -i <src>
 | `-c:a aac -b:a 128k` | Audio AAC a 128 kbit/s. Si la entrada no tiene audio se usa `-an` (sin audio). |
 | `-movflags +faststart` | Mueve el índice (`moov`) al inicio del MP4, para que se pueda reproducir mientras se descarga. |
 
-**NVENC (P2-a, pendiente):** con `params={"hwaccel": "nvenc"}` y GPU NVIDIA disponible, el video se codificará con
+**Variante NVENC (GPU):** con `params={"hwaccel": "nvenc"}` y NVENC funcionando (sección 6):
 
 ```
--c:v h264_nvenc -preset p4 -rc vbr -cq {crf} -b:v 0 -c:a aac -b:a 128k
+ffmpeg -hide_banner -loglevel error -y [-threads N -filter_threads N] -i <src>
+       -vf scale=trunc(iw/2)*2:trunc(ih/2)*2
+       -c:v h264_nvenc -preset p4 -rc vbr -cq 23 -b:v 0 -pix_fmt yuv420p
+       -c:a aac -b:a 128k
+       -movflags +faststart
+       <dst>.mp4
 ```
 
 | Opción | Significado |
 |---|---|
 | `-c:v h264_nvenc` | H.264 codificado por el chip NVENC de la GPU NVIDIA, no por la CPU. |
-| `-preset p4` | Presets de NVENC de `p1` (más rápido) a `p7` (mejor calidad). `p4` equivale a `medium`. |
+| `-preset p4` | Presets de NVENC de `p1` (más rápido) a `p7` (mejor calidad). Sin `preset` se usa `p4`; si viene un preset de x264 se traduce: `ultrafast`/`superfast` → `p1`, `veryfast` → `p2`, `faster`/`fast` → `p3`, `medium` → `p4`, `slow` → `p5`, `slower` → `p6`, `veryslow`/`placebo` → `p7`. |
 | `-rc vbr` | Control de tasa con bitrate variable. |
-| `-cq {crf}` | Calidad constante objetivo; se usa el mismo valor que `crf` (escala parecida). |
+| `-cq {crf}` | Calidad constante objetivo; se usa el mismo valor que `crf` (escala parecida, default 23). `crf=0` se envía como `-cq 1`, porque en NVENC `-cq 0` significa "automático". |
 | `-b:v 0` | Sin bitrate objetivo: manda solo la calidad `-cq`. |
+| `-threads N -filter_threads N` (antes de `-i`) | Con NVENC la CPU solo decodifica y escala, así que `threads` se aplica al decodificador y a los filtros. |
 
-Esta sección se completa en la P2-a con la política de GPU (sección 6).
+`height` funciona igual que en CPU (`-vf scale=-2:{height}`).
 
 ### 2.2 `extract_audio`
 
@@ -133,7 +139,7 @@ Los parámetros desconocidos se ignoran. Un valor inválido también se ignora y
 | `transcode_video` | `crf` | `23` | entero de 0 a 51 (acepta `"28"`) |
 | `transcode_video` | `preset` | `fast` | `ultrafast`, `superfast`, `veryfast`, `faster`, `fast`, `medium`, `slow`, `slower`, `veryslow`, `placebo` |
 | `transcode_video` | `height` | resolución original | entero positivo **par** (máx. 8640) |
-| `transcode_video` | `hwaccel` | — (CPU) | `"nvenc"` (P2-a) |
+| `transcode_video` | `hwaccel` | — (CPU) | `"nvenc"` (GPU con respaldo a CPU, sección 6) |
 | `extract_audio` | `bitrate` | VBR `-q:a 2` | `192`, `"192k"`… entre 8 y 320 kbit/s |
 | `convert_audio` | `bitrate` | `192k` | igual que arriba |
 | `generate_thumbnail` | `timestamp` | 10 % de la duración | segundos ≥ 0 y menores que la duración |
@@ -170,7 +176,27 @@ La P2-d cambiará el default por un valor proporcional a la duración del medio 
 
 ## 6. Política de GPU
 
-Pendiente de la P2-a (NVENC con respaldo a CPU, detección con `detect_hw_encoders()`).
+**Cuándo se usa NVENC.** Solo en `transcode_video` y solo si el worker lo pide con `params={"hwaccel": "nvenc"}` (en el nodo GPU, `HWACCEL=nvenc` en su `.env`). El módulo **nunca** lo activa por su cuenta. Un valor de `hwaccel` desconocido se ignora y se usa la CPU.
+
+**Detección: `detect_hw_encoders()`.** Devuelve `{"nvenc": bool, "gpu_name": str | None}`.
+- No se confía en `ffmpeg -encoders`: el build de FFmpeg para Windows lista `h264_nvenc`, `qsv` y `amf` aunque no exista el hardware o el driver no sirva. Por eso se hace una **codificación real mínima**:
+  ```
+  ffmpeg -hide_banner -loglevel error -f lavfi -i color=black:s=256x256:d=0.1 -frames:v 1 -c:v h264_nvenc -f null -
+  ```
+  Genera un fotograma negro de 256×256 (`lavfi color`), lo codifica con NVENC y lo descarta (`-f null -`). Si el código de salida es 0, NVENC funciona.
+- El nombre de la GPU sale de `nvidia-smi --query-gpu=name --format=csv,noheader` si ese programa está en el PATH; si no, `None`.
+- El resultado se guarda en una **caché de módulo protegida con `threading.Lock`**: se detecta una sola vez por proceso aunque varios hilos llamen a la vez. La detección tiene un timeout de 15 s y **nunca lanza excepciones** (cualquier error significa `nvenc = False`).
+- Dev 2 puede usarla para el campo `gpu` del heartbeat.
+
+**Respaldo automático a CPU.** Se reintenta **una vez** con `libx264`, registrando un `warning` con `logging`, en dos casos:
+1. se pidió NVENC pero `detect_hw_encoders()["nvenc"]` es `False`;
+2. FFmpeg con NVENC termina con código ≠ 0 y el stderr menciona `nvenc`, `cuda` o `No capable devices` (sin importar mayúsculas). En este caso se borra el parcial antes de reintentar.
+
+Si también falla con `libx264`, se lanza el `ProcessingError` que corresponda (el problema era el archivo). Un **timeout** con NVENC **no** dispara el respaldo: se lanza `ProcessingTimeoutError` directamente. `ProcessResult.encoder` indica el encoder que realmente se usó (`"h264_nvenc"` o `"libx264"`), y Dev 2 puede agregarlo al reporte para que el dashboard muestre qué sub-tareas usaron GPU.
+
+**Requisito de driver.** El build de FFmpeg 9.0 de Gyan necesita la API NVENC 13.1, es decir, un driver NVIDIA **610.00 o más nuevo**. Con un driver anterior la detección da `nvenc = False` (el stderr dice `Required: 13.1 Found: 13.0`) y todo corre en CPU.
+
+NVENC dentro de Docker queda fuera de alcance: el nodo GPU corre en modo nativo en Windows.
 
 ## 7. Pruebas, línea de comandos y benchmark
 
@@ -180,14 +206,18 @@ Pendiente de la P2-a (NVENC con respaldo a CPU, detección con `detect_hw_encode
 py -m pytest tests/test_multimedia_processor.py -v
 ```
 
-Si FFmpeg no está instalado, las pruebas que lo necesitan se saltan.
+Si FFmpeg no está instalado, las pruebas que lo necesitan se saltan. Las pruebas que usan la GPU de verdad se saltan si `detect_hw_encoders()["nvenc"]` es `False` (Docker, máquinas sin GPU o driver viejo). La prueba de respaldo a CPU corre en cualquier máquina: simula un fallo de NVENC reemplazando el nombre del encoder por uno inexistente.
 
 **Línea de comandos:**
 
 ```powershell
-py src\workers\multimedia_processor.py <operacion> <entrada> <carpeta_salida> [--threads N] [--timeout S] [-p clave=valor ...]
+py src\workers\multimedia_processor.py <operacion> <entrada> <carpeta_salida> [--threads N] [--timeout S] [--hwaccel nvenc] [-p clave=valor ...]
 py src\workers\multimedia_processor.py transcode_video tests\video.mp4 salida -p height=720 -p crf=28
+py src\workers\multimedia_processor.py transcode_video tests\video.mp4 salida --hwaccel nvenc
+py src\workers\multimedia_processor.py --detect-gpu
 ```
+
+`--detect-gpu` imprime el resultado de `detect_hw_encoders()`. Los avisos (por ejemplo, el respaldo a CPU) se muestran como `[WARNING] ...`.
 
 Si tiene éxito imprime `OK` y el `ProcessResult` en JSON; si falla imprime `FALLÓ [NombreExcepcion]: mensaje` y sale con código 1. Sin argumentos muestra la ayuda.
 

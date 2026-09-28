@@ -16,47 +16,68 @@ El proyecto utiliza las siguientes dependencias principales en el ecosistema de 
 
 Para la comunicación y distribución de tareas entre el coordinador y los workers, se utiliza un broker de mensajes basado en Redis.
 
-### Pasos para levantarlo localmente con Docker:
-1. Asegúrate de tener Docker Desktop instalado y abierto en tu computadora.
-2. Descarga y ejecuta un contenedor oficial de Redis usando la imagen ligera de Alpine:
+### Inicio rápido (máquina A: coordinador + Redis + MinIO)
+
 ```bash
-   docker run -d --name redis-server -p 6379:6379 redis:alpine
-```
-3. O bien, búscalo directamente en la interfaz gráfica de Docker Desktop (redis:alpine o redis:latest) y asegúrate de mapear el puerto 6379:6379.
+cp .env.example .env
+# Editar .env con REDIS_PASSWORD y credenciales MinIO
 
-### Cómo Instalar el Entorno
+docker compose up -d
+# Levanta Redis (con contraseña), MinIO, y reaper
 
-1. Clona o abre el repositorio del proyecto en tu máquina local.
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
-2. Instala las dependencias necesarias ejecutando el siguiente comando en tu terminal:
-```bash
-    pip install fastapi uvicorn redis requests pydantic
-```
-
-
-### Cómo Ejecutar el Proyecto
-
-El sistema se divide en dos componentes principales: el Coordinador y los Workers.
-
-1. Ejecutar el Nodo Coordinador
-
-El coordinador se encarga de recibir los casos, encolar las sub-tareas y gestionar la sincronización. Para levantarlo desde la raíz del proyecto, ejecuta:
-```bash
-    python -m uvicorn src.coordinator.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn src.coordinator.main:app --host 0.0.0.0 --port 8000
 ```
 
-- Una vez encendido, puedes acceder a la documentación interactiva (Swagger UI) en tu navegador ingresando a: 
-     http://localhost:8000/docs
+Swagger UI: http://localhost:8000/docs
 
-2. Ejecutar los Nodos Workers (Persona 2 y Persona 3)
+MinIO console: http://localhost:9001 (usuario: minioadmin)
 
-Los workers se conectan al servidor de Redis para extraer tareas pendientes y procesarlas.
+### Instalación de dependencias
 
-1. En la máquina o terminal correspondiente al worker, asegúrate de tener el script worker.py.
-
-2. Configura la IP del coordinador y de Redis en el script.
-
-3. Ejecuta el worker:
 ```bash
-    python worker.py
+pip install -r requirements.txt
 ```
+
+Para desarrollo con pruebas:
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+## Cómo Ejecutar el Sistema Completo
+
+El sistema se divide en dos componentes principales: el Coordinador y los Workers, desplegados en máquinas diferentes (Máquina A y máquinas B/C/D).
+
+### 1. Coordinador (Máquina A)
+
+Ver `docs/DEPLOY_WORKERS.md`, sección "Máquina A: Coordinador + Redis + MinIO + Reaper".
+
+### 2. Workers (Máquinas B/C/D)
+
+Los workers se conectan al servidor de Redis en la máquina A para extraer tareas pendientes y procesarlas.
+
+**Con Docker:**
+
+```bash
+docker compose -f deploy/docker-compose.worker.yml up -d --build
+docker compose -f deploy/docker-compose.worker.yml logs -f
+```
+
+**Nativo (Python):**
+
+```bash
+python -m src.workers.worker_node
+```
+
+La configuración se lee desde `.env` (variables: `REDIS_HOST`, `COORDINATOR_URL`, `MINIO_ENDPOINT`, `NODE_NAME`, `WORKER_QUEUES`, `WORKER_CONCURRENCY`). No se requieren cambios de código.
+
+**Documentación completa:**
+
+- `docs/DEPLOY_WORKERS.md` — Guía de despliegue paso a paso (Docker, nativo, firewall, Tailscale)
+- `docs/WORKER_CONTRACT.md` — Referencia técnica de colas, estados, payloads de reporte, algoritmo del reaper
+- `docs/OPERATIONS.md` — Detalle de cada operación multimedia y parámetros

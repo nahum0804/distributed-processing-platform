@@ -310,3 +310,55 @@ def test_import_scripts_reaper_does_not_require_reporter_module(monkeypatch):
     assert hasattr(module, "main")
     assert module.ACTIVE_STATES == ACTIVE_STATES
     assert module.TERMINAL_STATES == TERMINAL_STATES
+
+
+def test_dead_worker_requeue_sets_case_retrying(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "processing", "retries": "0"})
+    make_subtask(redis_client, "sid-1", status="running")
+    make_subtask(redis_client, "sid-2", status="assigned")
+    register_inflight(redis_client, "worker-a", ["sid-1", "sid-2"], alive=False)
+
+    counts = Reaper(make_settings(), redis_client, FakeReporter(), clock=lambda: 1000.0).run_once()
+
+    assert counts["requeued"] == 2
+    assert redis_client.hget("case:case-1", "status") == "retrying"
+    assert redis_client.hget("case:case-1", "retries") == "2"
+
+
+def test_expired_task_requeue_keeps_terminal_case_untouched(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "failed", "retries": "0"})
+    make_subtask(redis_client, "sid-old", status="running", assigned_ts=100.0)
+    register_inflight(redis_client, "worker-b", ["sid-old"], alive=True)
+
+    counts = Reaper(make_settings(reaper_max_age=100.0), redis_client, FakeReporter(), clock=lambda: 1000.0).run_once()
+
+    assert counts["requeued"] == 1
+    assert redis_client.hget("case:case-1", "status") == "failed"
+    assert redis_client.hget("case:case-1", "retries") == "0"
+
+
+def test_cancelled_case_subtasks_cleaned_not_requeued(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "cancelled", "retries": "0"})
+    make_subtask(redis_client, "sid-1", status="running")
+    register_inflight(redis_client, "worker-a", ["sid-1"], alive=False)
+
+    reporter = FakeReporter()
+    counts = Reaper(make_settings(), redis_client, reporter, clock=lambda: 1000.0).run_once()
+
+    assert counts == {"requeued": 0, "failed": 0, "workers_removed": 1, "cleaned": 1}
+    assert redis_client.hget("subtask:sid-1", "status") == "cancelled"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []
+    assert redis_client.hget("case:case-1", "status") == "cancelled"
+    assert reporter.reported == []
+
+
+def test_high_priority_subtask_requeued_to_high_queue(redis_client):
+    make_subtask(redis_client, "sid-hi", status="running")
+    redis_client.hset("subtask:sid-hi", "priority", "high")
+    register_inflight(redis_client, "worker-a", ["sid-hi"], alive=False)
+
+    counts = Reaper(make_settings(), redis_client, FakeReporter(), clock=lambda: 1000.0).run_once()
+
+    assert counts["requeued"] == 1
+    assert redis_client.lrange("queue:transcode_video:high", 0, -1) == ["sid-hi"]
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []

@@ -68,7 +68,7 @@ def plan_operations(files: list[Path], mode: str) -> list[tuple[Path, str]]:
 
 
 def build_case_payload(keys_ops: list[tuple[str, str]]) -> dict:
-    return {"files": [{"path": key, "operation": op} for key, op in keys_ops]}
+    return {"subtasks": [{"task_type": op, "file_path": key, "params": None} for key, op in keys_ops]}
 
 
 def upload_plan(storage, plan: list[tuple[Path, str]], prefix: str, bucket: str) -> list[tuple[str, str]]:
@@ -83,9 +83,46 @@ def upload_plan(storage, plan: list[tuple[Path, str]], prefix: str, bucket: str)
 
 def submit_case(coordinator_url: str, keys_ops: list[tuple[str, str]], session=requests) -> dict:
     payload = build_case_payload(keys_ops)
-    resp = session.post(f"{coordinator_url}/cases/", json=payload, timeout=10)
+    resp = session.post(f"{coordinator_url}/cases", json=payload, timeout=10)
     resp.raise_for_status()
     return resp.json()
+
+
+def count_subtasks(subtasks: list[dict]) -> tuple[int, int]:
+    ok = sum(1 for s in subtasks if s.get("status") == "completed")
+    failed = sum(1 for s in subtasks if s.get("status") == "failed")
+    return ok, failed
+
+
+def fetch_report(coordinator_url: str, case_id: str, session=requests) -> dict | None:
+    try:
+        resp = session.get(f"{coordinator_url}/cases/{case_id}/report", timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except (requests.RequestException, ValueError) as e:
+        print(f"Aviso: no se pudo obtener el reporte de {case_id}: {e}")
+        return None
+
+
+def print_report(case_id: str, report: dict) -> None:
+    print(f"Reporte {case_id}: {report.get('summary', '')}")
+    breakdown = report.get("failure_breakdown") or {}
+    if breakdown:
+        print("  fallos: " + ", ".join(f"{k}={v}" for k, v in breakdown.items()))
+    by_host = report.get("avg_processing_s_by_host") or {}
+    if by_host:
+        print("  prom(s) por host: " + ", ".join(f"{h}={v:.2f}" for h, v in by_host.items()))
+
+
+def http_error_detail(e: requests.RequestException) -> str:
+    resp = getattr(e, "response", None)
+    if resp is None:
+        return str(e)
+    try:
+        detail = resp.json().get("detail", resp.text)
+    except (ValueError, AttributeError):
+        detail = resp.text
+    return f"{resp.status_code} {detail}"
 
 
 def poll_case(
@@ -104,12 +141,14 @@ def poll_case(
         resp = session.get(f"{coordinator_url}/cases/{case_id}", timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        status = data.get("status")
+        case = data.get("case", {})
+        subtasks = data.get("subtasks", [])
+        status = case.get("status")
+        ok, failed = count_subtasks(subtasks)
+        total = case.get("total_subtasks", len(subtasks))
+        data.update(case_id=case_id, status=status, ok=ok, failed=failed, total=total)
         if status != last_status:
-            print(
-                f"{case_id} {status} "
-                f"{data.get('completed_subtasks', '?')}/{data.get('failed_subtasks', '?')}/{data.get('total_subtasks', '?')}"
-            )
+            print(f"{case_id} {status} {ok}/{failed}/{total}")
             last_status = status
         if status in FINISHED_STATUSES:
             data["_wall_time"] = now() - start
@@ -155,6 +194,9 @@ def main(argv: list[str] | None = None) -> int:
         print("No hay archivos para enviar")
         return 1
 
+    if args.mode == "auto":
+        plan = [(path, "auto") for path, _ in plan]
+
     settings = Settings.from_env()
 
     if args.no_upload:
@@ -174,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
             futures = [pool.submit(submit_case, coordinator_url, keys_ops) for _ in range(args.repeat)]
             cases = [fut.result() for fut in futures]
     except requests.RequestException as e:
-        print(f"Error HTTP al crear el caso: {e}")
+        print(f"Error HTTP al crear el caso: {http_error_detail(e)}")
         return 1
 
     results = []
@@ -185,16 +227,19 @@ def main(argv: list[str] | None = None) -> int:
         for fut in as_completed(futures):
             results.append(fut.result())
 
+    for r in results:
+        if not r.get("_timed_out"):
+            report = fetch_report(coordinator_url, r["case_id"])
+            if report:
+                print_report(r["case_id"], report)
+
     print("\nResumen:")
     print(f"{'case_id':38} {'status':20} {'ok/fail/total':15} tiempo(s)")
     timed_out_any = False
     for r in results:
         if r.get("_timed_out"):
             timed_out_any = True
-        ok = r.get("completed_subtasks", "?")
-        fail = r.get("failed_subtasks", "?")
-        total = r.get("total_subtasks", "?")
-        summary = f"{ok}/{fail}/{total}"
+        summary = f"{r.get('ok', '?')}/{r.get('failed', '?')}/{r.get('total', '?')}"
         print(f"{r.get('case_id', '?'):38} {r.get('status', '?'):20} {summary:15} {r.get('_wall_time', 0.0):.1f}")
 
     return 2 if timed_out_any else 0

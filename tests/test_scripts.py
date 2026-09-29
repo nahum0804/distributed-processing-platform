@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import re
 from pathlib import Path
 
@@ -91,18 +92,18 @@ def test_plan_operations_invalid_mode_raises():
 # --- submit_case: build_case_payload ---
 
 def test_build_case_payload():
-    keys_ops = [("dataset-x/a.mp4", "transcode_video"), ("dataset-x/b.mp3", "convert_audio")]
+    keys_ops = [("dataset-x/a.mp4", "transcode_video"), ("dataset-x/b.mp3", "auto")]
     payload = submit_case.build_case_payload(keys_ops)
     assert payload == {
-        "files": [
-            {"path": "dataset-x/a.mp4", "operation": "transcode_video"},
-            {"path": "dataset-x/b.mp3", "operation": "convert_audio"},
+        "subtasks": [
+            {"task_type": "transcode_video", "file_path": "dataset-x/a.mp4", "params": None},
+            {"task_type": "auto", "file_path": "dataset-x/b.mp3", "params": None},
         ]
     }
 
 
 def test_build_case_payload_empty():
-    assert submit_case.build_case_payload([]) == {"files": []}
+    assert submit_case.build_case_payload([]) == {"subtasks": []}
 
 
 # --- submit_case: upload_plan uses injected storage ---
@@ -121,63 +122,64 @@ def test_upload_plan_uses_injected_storage(tmp_path):
 
 # --- submit_case: poll_case ---
 
-@responses.activate
-def test_poll_case_reaches_completed():
-    coordinator_url = "http://coord.local"
-    case_id = "case-123"
+COORD = "http://coord.local"
 
-    responses.add(
-        responses.GET, f"{coordinator_url}/cases/{case_id}",
-        json={"case_id": case_id, "status": "processing", "completed_subtasks": 0, "failed_subtasks": 0, "total_subtasks": 2},
-        status=200,
-    )
-    responses.add(
-        responses.GET, f"{coordinator_url}/cases/{case_id}",
-        json={"case_id": case_id, "status": "completed", "completed_subtasks": 2, "failed_subtasks": 0, "total_subtasks": 2},
-        status=200,
-    )
 
+def case_body(case_id, status, subtask_statuses, total=None):
+    return {
+        "case": {"case_id": case_id, "status": status, "total_subtasks": total or len(subtask_statuses)},
+        "subtasks": [{"status": st, "operation": "transcode_video"} for st in subtask_statuses],
+    }
+
+
+def make_clock():
+    clock = [0.0]
     sleeps = []
-    fake_clock = [0.0]
 
     def fake_sleep(s):
         sleeps.append(s)
-        fake_clock[0] += s
+        clock[0] += s
 
-    def fake_now():
-        return fake_clock[0]
+    return sleeps, fake_sleep, lambda: clock[0]
 
-    result = submit_case.poll_case(
-        coordinator_url, case_id, poll_interval=1.0, timeout=30.0, sleep=fake_sleep, now=fake_now
-    )
+
+@responses.activate
+def test_poll_case_reaches_completed(capsys):
+    case_id = "case-123"
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "processing", ["completed", "pending"]))
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "completed", ["completed", "completed"]))
+    sleeps, fake_sleep, fake_now = make_clock()
+
+    result = submit_case.poll_case(COORD, case_id, poll_interval=1.0, timeout=30.0, sleep=fake_sleep, now=fake_now)
 
     assert result["status"] == "completed"
+    assert (result["ok"], result["failed"], result["total"]) == (2, 0, 2)
     assert result["_timed_out"] is False
     assert sleeps == [1.0]
+    out = capsys.readouterr().out
+    assert f"{case_id} processing 1/0/2" in out
+    assert f"{case_id} completed 2/0/2" in out
+
+
+@responses.activate
+def test_poll_case_counts_failed():
+    case_id = "case-f"
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "partially_completed", ["completed", "failed"]))
+    _, fake_sleep, fake_now = make_clock()
+
+    result = submit_case.poll_case(COORD, case_id, 1.0, 30.0, sleep=fake_sleep, now=fake_now)
+
+    assert (result["ok"], result["failed"], result["total"]) == (1, 1, 2)
+    assert result["_timed_out"] is False
 
 
 @responses.activate
 def test_poll_case_times_out():
-    coordinator_url = "http://coord.local"
     case_id = "case-456"
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "processing", ["pending", "pending"]))
+    _, fake_sleep, fake_now = make_clock()
 
-    responses.add(
-        responses.GET, f"{coordinator_url}/cases/{case_id}",
-        json={"case_id": case_id, "status": "processing", "completed_subtasks": 0, "failed_subtasks": 0, "total_subtasks": 2},
-        status=200,
-    )
-
-    fake_clock = [0.0]
-
-    def fake_sleep(s):
-        fake_clock[0] += s
-
-    def fake_now():
-        return fake_clock[0]
-
-    result = submit_case.poll_case(
-        coordinator_url, case_id, poll_interval=5.0, timeout=9.0, sleep=fake_sleep, now=fake_now
-    )
+    result = submit_case.poll_case(COORD, case_id, poll_interval=5.0, timeout=9.0, sleep=fake_sleep, now=fake_now)
 
     assert result["_timed_out"] is True
     assert result["status"] == "processing"
@@ -185,18 +187,149 @@ def test_poll_case_times_out():
 
 @responses.activate
 def test_submit_case_posts_payload_and_returns_json():
-    coordinator_url = "http://coord.local"
     responses.add(
-        responses.POST, f"{coordinator_url}/cases/",
-        json={"case_id": "abc", "subtasks_created": 1, "status": "processing"},
-        status=200,
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "abc", "status": "processing", "total_subtasks": 1, "subtask_ids": ["s1"], "created_at": "x"},
+        status=201,
     )
 
-    result = submit_case.submit_case(coordinator_url, [("k", "transcode_video")])
+    result = submit_case.submit_case(COORD, [("k", "transcode_video")])
 
     assert result["case_id"] == "abc"
     sent = responses.calls[0].request
-    assert sent.url == f"{coordinator_url}/cases/"
+    assert sent.url == f"{COORD}/cases"
+    assert json.loads(sent.body) == {"subtasks": [{"task_type": "transcode_video", "file_path": "k", "params": None}]}
+
+
+# --- submit_case: report ---
+
+@responses.activate
+def test_fetch_report_and_print(capsys):
+    report = {
+        "status": "partially_completed",
+        "summary": "1 de 2 completadas",
+        "totals": {"total": 2, "completed": 1, "failed": 1, "pending": 0},
+        "failure_breakdown": {"timeout": 1},
+        "avg_processing_s_by_host": {"h1": 1.5},
+    }
+    responses.add(responses.GET, f"{COORD}/cases/c1/report", json=report)
+
+    got = submit_case.fetch_report(COORD, "c1")
+    submit_case.print_report("c1", got)
+
+    out = capsys.readouterr().out
+    assert "1 de 2 completadas" in out
+    assert "timeout=1" in out
+    assert "h1=1.50" in out
+
+
+@responses.activate
+def test_fetch_report_failure_is_warning(capsys):
+    responses.add(responses.GET, f"{COORD}/cases/c1/report", json={"detail": "x"}, status=500)
+
+    assert submit_case.fetch_report(COORD, "c1") is None
+    assert "Aviso" in capsys.readouterr().out
+
+
+# --- submit_case: main ---
+
+@pytest.fixture
+def media_dir(tmp_path):
+    (tmp_path / "a.mp4").write_bytes(b"v")
+    (tmp_path / "b.mp3").write_bytes(b"a")
+    (tmp_path / "c.txt").write_bytes(b"t")
+    return tmp_path
+
+
+def run_main(monkeypatch, media_dir, *extra):
+    fixed = Settings.from_env({"COORDINATOR_URL": COORD})
+    monkeypatch.setattr(submit_case.Settings, "from_env", classmethod(lambda cls, env=None: fixed))
+    return submit_case.main(["--dir", str(media_dir), "--no-upload", "--poll", "0", *extra])
+
+
+def add_happy_path(case_id="cid"):
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": case_id, "status": "processing", "total_subtasks": 2, "subtask_ids": ["1", "2"], "created_at": "x"},
+        status=201,
+    )
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "processing", ["pending", "pending"]))
+    responses.add(responses.GET, f"{COORD}/cases/{case_id}", json=case_body(case_id, "completed", ["completed", "completed"]))
+    responses.add(
+        responses.GET, f"{COORD}/cases/{case_id}/report",
+        json={"status": "completed", "summary": "todo bien", "failure_breakdown": {}, "avg_processing_s_by_host": {"h1": 2.0}},
+    )
+
+
+def posted_tasks():
+    return json.loads(responses.calls[0].request.body)["subtasks"]
+
+
+@responses.activate
+def test_main_auto_sends_task_type_auto(monkeypatch, media_dir, capsys):
+    add_happy_path()
+
+    code = run_main(monkeypatch, media_dir, "--mode", "auto")
+
+    assert code == 0
+    tasks = posted_tasks()
+    assert [t["task_type"] for t in tasks] == ["auto", "auto"]
+    assert [t["file_path"] for t in tasks] == [f"{media_dir.name}/a.mp4", f"{media_dir.name}/b.mp3"]
+    out = capsys.readouterr().out
+    assert "omitieron 1" in out
+    assert "cid completed 2/0/2" in out
+    assert "todo bien" in out
+    assert "h1=2.00" in out
+
+
+@responses.activate
+def test_main_mixed_sends_concrete_ops(monkeypatch, media_dir):
+    add_happy_path()
+
+    assert run_main(monkeypatch, media_dir, "--mode", "mixed") == 0
+
+    assert [t["task_type"] for t in posted_tasks()] == ["transcode_video", "convert_audio", "extract_metadata"]
+
+
+@responses.activate
+def test_main_explicit_operation(monkeypatch, media_dir):
+    add_happy_path()
+
+    assert run_main(monkeypatch, media_dir, "--mode", "extract_metadata") == 0
+
+    assert {t["task_type"] for t in posted_tasks()} == {"extract_metadata"}
+
+
+@responses.activate
+def test_main_422_prints_detail_and_exits_1(monkeypatch, media_dir, capsys):
+    responses.add(responses.POST, f"{COORD}/cases", json={"detail": "task_type invalido: foo"}, status=422)
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto") == 1
+
+    out = capsys.readouterr().out
+    assert "422" in out
+    assert "task_type invalido: foo" in out
+
+
+@responses.activate
+def test_main_report_failure_does_not_fail(monkeypatch, media_dir, capsys):
+    add_happy_path()
+    responses.replace(responses.GET, f"{COORD}/cases/cid/report", json={"detail": "boom"}, status=500)
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto") == 0
+    assert "Aviso" in capsys.readouterr().out
+
+
+@responses.activate
+def test_main_timeout_exit_2(monkeypatch, media_dir):
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "cid", "status": "processing", "total_subtasks": 2, "subtask_ids": [], "created_at": "x"},
+        status=201,
+    )
+    responses.add(responses.GET, f"{COORD}/cases/cid", json=case_body("cid", "processing", ["pending", "pending"]))
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto", "--timeout", "0") == 2
 
 
 # --- seed_minio ---

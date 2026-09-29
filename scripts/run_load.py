@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,8 @@ from src.workers.storage import Storage, StorageError
 logger = logging.getLogger("run_load")
 
 WORKER_NUMERIC = ("cpu_percent", "mem_percent", "active_subtasks", "completed_count", "failed_count")
+FILE_METADATA_FIELDS = ("event", "session", "user", "batch", "size_class", "format", "type")
+PRIORITIES = ("normal", "high")
 
 
 def load_dataset(dataset: Path) -> tuple[dict, dict]:
@@ -38,6 +41,26 @@ def load_dataset(dataset: Path) -> tuple[dict, dict]:
 def select_cases(cases: dict, kinds: list[str] | None, limit: int | None) -> list[dict]:
     selected = [c for c in cases["cases"] if not kinds or c["kind"] in kinds]
     return selected[:limit] if limit else selected
+
+
+def index_manifest(manifest: dict) -> dict[str, dict]:
+    return {f["key"]: f for f in manifest.get("files", []) if "key" in f}
+
+
+def file_metadata(entry: dict | None) -> dict | None:
+    if not entry:
+        return None
+    meta = {k: entry[k] for k in FILE_METADATA_FIELDS if entry.get(k) is not None}
+    return meta or None
+
+
+def assign_priorities(n: int, high_fraction: float, seed: int) -> list[str]:
+    fraction = min(1.0, max(0.0, high_fraction))
+    high = min(n, round(fraction * n))
+    if fraction > 0 and n > 0 and high == 0:
+        high = 1
+    chosen = set(random.Random(seed).sample(range(n), high))
+    return ["high" if i in chosen else "normal" for i in range(n)]
 
 
 def _already_uploaded(storage, bucket: str, key: str, size: int) -> bool:
@@ -70,10 +93,24 @@ def upload_dataset(storage, manifest: dict, media_dir: Path, bucket: str, worker
     return stats
 
 
-def submit_one(session, url: str, case: dict, clock=time.time) -> dict:
-    payload = build_case_payload([(s["file_path"], s["task_type"]) for s in case["subtasks"]])
+def build_payload(case: dict, priority: str = "normal", files_by_key: dict[str, dict] | None = None) -> dict:
+    files_by_key = files_by_key or {}
+    subtasks = case["subtasks"]
+    return build_case_payload(
+        [(s["file_path"], s["task_type"]) for s in subtasks],
+        priority=priority,
+        metadata={"name": case["name"], "kind": case["kind"], "criterion": case.get("criterion")},
+        subtask_metadata=[file_metadata(files_by_key.get(s["file_path"])) for s in subtasks],
+        subtask_params=[s.get("params") for s in subtasks],
+    )
+
+
+def submit_one(session, url: str, case: dict, clock=time.time, priority: str = "normal",
+               files_by_key: dict[str, dict] | None = None) -> dict:
+    payload = build_payload(case, priority, files_by_key)
     info = {"name": case["name"], "kind": case["kind"], "criterion": case.get("criterion"),
-            "subtasks": len(case["subtasks"]), "submitted_at": clock(), "case_id": None, "error": None}
+            "priority": priority, "subtasks": len(case["subtasks"]), "submitted_at": clock(),
+            "case_id": None, "error": None}
     try:
         resp = session.post(f"{url}/cases", json=payload, timeout=30)
         resp.raise_for_status()
@@ -84,9 +121,12 @@ def submit_one(session, url: str, case: dict, clock=time.time) -> dict:
     return info
 
 
-def submit_all(session, url: str, cases: list[dict], concurrency: int, clock=time.time) -> list[dict]:
+def submit_all(session, url: str, cases: list[dict], concurrency: int, clock=time.time,
+               priorities: list[str] | None = None, files_by_key: dict[str, dict] | None = None) -> list[dict]:
+    priorities = priorities or ["normal"] * len(cases)
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
-        return list(pool.map(lambda c: submit_one(session, url, c, clock), cases))
+        return list(pool.map(lambda cp: submit_one(session, url, cp[0], clock, cp[1], files_by_key),
+                             zip(cases, priorities)))
 
 
 def connect_redis(settings: Settings, redis_client=None):
@@ -123,6 +163,19 @@ def sample_workers(redis_client) -> dict[str, dict]:
     return workers
 
 
+def sample_stats(session, url: str) -> dict | None:
+    try:
+        resp = session.get(f"{url}/stats", timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {k: data[k] for k in ("queues", "cases_by_status", "workers_alive", "workers_total", "subtasks_active")
+            if k in data}
+
+
 def _fetch_status(session, url: str, case_id: str) -> str | None:
     try:
         resp = session.get(f"{url}/cases/{case_id}", timeout=15)
@@ -154,6 +207,7 @@ def monitor(session, url: str, submitted: list[dict], redis_client, poll: float,
                 "cases": dict(sorted({s: list(statuses.values()).count(s) for s in set(statuses.values())}.items())),
                 "active_total": int(sum(w["active_subtasks"] for w in workers.values())),
                 "workers": workers,
+                "stats": sample_stats(session, url),
             })
             if all(st in FINISHED_STATUSES for st in statuses.values()):
                 break
@@ -228,8 +282,9 @@ def compute_metrics(submitted: list[dict], reports: dict[str, dict], mon: dict, 
                     op_count[op] = op_count.get(op, 0) + 1
         if duration is None and cid in mon["finished_after_s"]:
             duration = round(mon["finished_after_s"][cid], 3)
-        per_case.append({"name": info["name"], "kind": info["kind"], "case_id": cid, "status": status,
-                         "subtasks": info["subtasks"], "duration_s": duration, "error": info["error"]})
+        per_case.append({"name": info["name"], "kind": info["kind"], "priority": info.get("priority", "normal"),
+                         "case_id": cid, "status": status, "subtasks": info["subtasks"],
+                         "duration_s": duration, "error": info["error"]})
 
     peak_cpu: dict[str, float] = {}
     peak_active: dict[str, int] = {}
@@ -240,6 +295,18 @@ def compute_metrics(submitted: list[dict], reports: dict[str, dict], mon: dict, 
             peak_active[host] = max(peak_active.get(host, 0), int(w["active_subtasks"]))
 
     durations = [c["duration_s"] for c in per_case if c["duration_s"] is not None]
+    by_priority = {}
+    for prio in PRIORITIES:
+        group = [c for c in per_case if c["priority"] == prio]
+        prio_durations = [c["duration_s"] for c in group if c["duration_s"] is not None]
+        by_priority[prio] = {"cases": len(group), "with_duration": len(prio_durations),
+                             "avg_duration_s": _avg(prio_durations),
+                             "max_duration_s": max(prio_durations) if prio_durations else 0.0}
+
+    max_queue: dict[str, int] = {}
+    for sample in mon["series"]:
+        for queue, length in ((sample.get("stats") or {}).get("queues") or {}).items():
+            max_queue[queue] = max(max_queue.get(queue, 0), int(_num(length)))
     return {
         "wall_s": round(wall_s, 3),
         "cases": len(submitted),
@@ -257,6 +324,8 @@ def compute_metrics(submitted: list[dict], reports: dict[str, dict], mon: dict, 
         "max_concurrent_active": max((s["active_total"] for s in mon["series"]), default=0),
         "peak_cpu_by_host": {h: round(v, 1) for h, v in sorted(peak_cpu.items())},
         "peak_active_by_host": dict(sorted(peak_active.items())),
+        "duration_by_priority": by_priority,
+        "max_queue_length": dict(sorted(max_queue.items())),
         "per_case": per_case,
     }
 
@@ -290,6 +359,10 @@ def render_md(config: dict, m: dict, timed_out: bool, workers_seen: bool) -> str
     lines += ["## Fallos por tipo de error", ""]
     lines += _table(["error_type", "Cantidad"], [[k, v] for k, v in m["failure_breakdown"].items()]) \
         if m["failure_breakdown"] else ["Sin fallos.", ""]
+    lines += ["## Prioridad alta vs normal", ""]
+    lines += _table(["Prioridad", "Casos", "Con duracion", "Duracion promedio (s)", "Duracion maxima (s)"], [
+        [p, d["cases"], d["with_duration"], d["avg_duration_s"], d["max_duration_s"]]
+        for p, d in m["duration_by_priority"].items()])
     lines += ["## Saturacion", ""]
     if workers_seen:
         lines += [f"- Maximo de sub-tareas activas simultaneas: {m['max_concurrent_active']}", ""]
@@ -297,6 +370,9 @@ def render_md(config: dict, m: dict, timed_out: bool, workers_seen: bool) -> str
             [h, v, m["peak_active_by_host"].get(h, 0)] for h, v in m["peak_cpu_by_host"].items()])
     else:
         lines += ["No se obtuvieron heartbeats de Redis; sin datos de saturacion.", ""]
+    if m["max_queue_length"]:
+        lines += ["### Largo maximo de las colas (GET /stats)", ""]
+        lines += _table(["Cola", "Largo maximo"], [[q, n] for q, n in m["max_queue_length"].items()])
     return "\n".join(lines)
 
 
@@ -316,7 +392,9 @@ def run_load(args, settings: Settings, session=requests, storage=None, redis_cli
     redis_conn = connect_redis(settings, redis_client)
 
     start = clock()
-    submitted = submit_all(session, settings.coordinator_url, cases, args.concurrency)
+    priorities = assign_priorities(len(cases), args.high_fraction, args.seed)
+    submitted = submit_all(session, settings.coordinator_url, cases, args.concurrency,
+                           priorities=priorities, files_by_key=index_manifest(manifest))
     mon = monitor(session, settings.coordinator_url, submitted, redis_conn, args.poll, args.timeout,
                   args.concurrency, sleep, clock)
     wall = clock() - start
@@ -326,7 +404,8 @@ def run_load(args, settings: Settings, session=requests, storage=None, redis_cli
 
     config = {"dataset": str(dataset), "coordinador": settings.coordinator_url, "casos": len(cases),
               "concurrencia": args.concurrency, "tipos": args.kinds or "todos", "limite": args.limit or "sin limite",
-              "poll (s)": args.poll, "timeout (s)": args.timeout, "subida": "si" if args.upload else "no"}
+              "poll (s)": args.poll, "timeout (s)": args.timeout, "subida": "si" if args.upload else "no",
+              "fraccion prioridad alta": args.high_fraction, "semilla": args.seed}
     stamp = stamp or datetime.now().strftime("%Y%m%d_%H%M%S")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -348,6 +427,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--kinds", default="homogeneous,heterogeneous")
     parser.add_argument("--timeout", type=float, default=3600.0)
     parser.add_argument("--poll", type=float, default=5.0)
+    parser.add_argument("--high-fraction", type=float, default=0.1,
+                        help="fraccion de casos enviados con prioridad alta (0 a 1)")
+    parser.add_argument("--seed", type=int, default=42, help="semilla para elegir los casos de prioridad alta")
     parser.add_argument("--out", type=Path, default=Path("docs/evidencia"))
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")

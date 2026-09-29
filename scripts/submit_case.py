@@ -18,6 +18,7 @@ MIXED_VIDEO_CYCLE = ("transcode_video", "extract_audio", "generate_thumbnail", "
 MIXED_AUDIO_CYCLE = ("convert_audio", "extract_metadata")
 
 FINISHED_STATUSES = {"completed", "partially_completed", "failed", "cancelled"}
+PRIORITIES = ("normal", "high")
 
 
 def classify(path: Path) -> str:
@@ -67,8 +68,26 @@ def plan_operations(files: list[Path], mode: str) -> list[tuple[Path, str]]:
     return [(f, mode) for f in files]
 
 
-def build_case_payload(keys_ops: list[tuple[str, str]]) -> dict:
-    return {"subtasks": [{"task_type": op, "file_path": key, "params": None} for key, op in keys_ops]}
+def build_case_payload(
+    keys_ops: list[tuple[str, str]],
+    priority: str | None = None,
+    metadata: dict | None = None,
+    subtask_metadata: list[dict | None] | None = None,
+    subtask_params: list[dict | None] | None = None,
+) -> dict:
+    subtasks = []
+    for i, (key, op) in enumerate(keys_ops):
+        subtask = {"task_type": op, "file_path": key, "params": subtask_params[i] if subtask_params else None}
+        if subtask_metadata and subtask_metadata[i]:
+            subtask["metadata"] = subtask_metadata[i]
+        subtasks.append(subtask)
+    payload: dict = {}
+    if priority is not None:
+        payload["priority"] = priority
+    if metadata:
+        payload["metadata"] = metadata
+    payload["subtasks"] = subtasks
+    return payload
 
 
 def upload_plan(storage, plan: list[tuple[Path, str]], prefix: str, bucket: str) -> list[tuple[str, str]]:
@@ -81,11 +100,23 @@ def upload_plan(storage, plan: list[tuple[Path, str]], prefix: str, bucket: str)
     return keys_ops
 
 
-def submit_case(coordinator_url: str, keys_ops: list[tuple[str, str]], session=requests) -> dict:
-    payload = build_case_payload(keys_ops)
+def submit_case(coordinator_url: str, keys_ops: list[tuple[str, str]], session=requests, priority: str = "normal") -> dict:
+    payload = build_case_payload(keys_ops, priority=priority)
     resp = session.post(f"{coordinator_url}/cases", json=payload, timeout=10)
     resp.raise_for_status()
     return resp.json()
+
+
+def cancel_case(coordinator_url: str, case_id: str, session=requests) -> dict | None:
+    try:
+        resp = session.post(f"{coordinator_url}/cases/{case_id}/cancel", timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        print(f"Aviso: no se pudo cancelar {case_id}: {http_error_detail(e)}")
+    except ValueError as e:
+        print(f"Aviso: respuesta invalida al cancelar {case_id}: {e}")
+    return None
 
 
 def count_subtasks(subtasks: list[dict]) -> tuple[int, int]:
@@ -104,8 +135,26 @@ def fetch_report(coordinator_url: str, case_id: str, session=requests) -> dict |
         return None
 
 
+def format_totals_by_type_and_operation(totals: dict) -> str:
+    parts = []
+    for media_type, operations in totals.items():
+        if not isinstance(operations, dict):
+            parts.append(f"{media_type}={operations}")
+            continue
+        for op, value in operations.items():
+            if isinstance(value, dict):
+                value = ",".join(f"{k}:{v}" for k, v in value.items())
+            parts.append(f"{media_type}/{op}={value}")
+    return " ".join(parts)
+
+
 def print_report(case_id: str, report: dict) -> None:
-    print(f"Reporte {case_id}: {report.get('summary', '')}")
+    priority = report.get("priority")
+    suffix = f" [prioridad {priority}]" if priority else ""
+    print(f"Reporte {case_id}{suffix}: {report.get('summary', '')}")
+    totals = report.get("totals_by_type_and_operation")
+    if totals:
+        print("  por tipo/operacion: " + format_totals_by_type_and_operation(totals))
     breakdown = report.get("failure_breakdown") or {}
     if breakdown:
         print("  fallos: " + ", ".join(f"{k}={v}" for k, v in breakdown.items()))
@@ -170,6 +219,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--poll", type=float, default=2.0)
+    parser.add_argument("--priority", choices=PRIORITIES, default="normal", help="prioridad del caso")
+    parser.add_argument("--cancel-after", type=float, default=None, metavar="SEGUNDOS",
+                        help="cancela los casos N segundos despues de enviarlos (demuestra la cancelacion)")
     args = parser.parse_args(argv)
 
     directory = args.dir
@@ -213,19 +265,36 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         with ThreadPoolExecutor(max_workers=max(1, args.repeat)) as pool:
-            futures = [pool.submit(submit_case, coordinator_url, keys_ops) for _ in range(args.repeat)]
+            futures = [
+                pool.submit(submit_case, coordinator_url, keys_ops, requests, args.priority)
+                for _ in range(args.repeat)
+            ]
             cases = [fut.result() for fut in futures]
     except requests.RequestException as e:
         print(f"Error HTTP al crear el caso: {http_error_detail(e)}")
         return 1
 
+    if args.cancel_after is not None:
+        time.sleep(max(0.0, args.cancel_after))
+        for c in cases:
+            cancelled = cancel_case(coordinator_url, c["case_id"])
+            if cancelled:
+                print(
+                    f"Cancelado {c['case_id']}: estado={cancelled.get('status')} "
+                    f"canceladas={cancelled.get('cancelled_subtasks')} en_ejecucion={cancelled.get('running_subtasks')}"
+                )
+
     results = []
-    with ThreadPoolExecutor(max_workers=max(1, len(cases))) as pool:
-        futures = {
-            pool.submit(poll_case, coordinator_url, c["case_id"], args.poll, args.timeout): c for c in cases
-        }
-        for fut in as_completed(futures):
-            results.append(fut.result())
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, len(cases))) as pool:
+            futures = {
+                pool.submit(poll_case, coordinator_url, c["case_id"], args.poll, args.timeout): c for c in cases
+            }
+            for fut in as_completed(futures):
+                results.append(fut.result())
+    except requests.RequestException as e:
+        print(f"Error HTTP al consultar el caso: {http_error_detail(e)}")
+        return 1
 
     for r in results:
         if not r.get("_timed_out"):

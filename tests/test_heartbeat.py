@@ -131,3 +131,56 @@ def test_run_survives_beat_exception_and_stops_on_event():
 
     assert not hb.is_alive()
     assert call_count["n"] >= 3
+
+
+class _Proc:
+    def __init__(self, result=None, exc=None):
+        self._result, self._exc = result, exc
+
+    def detect_hw_encoders(self):
+        if self._exc:
+            raise self._exc
+        return self._result
+
+
+def _gpu_beat(**kwargs):
+    redis_client = fakeredis.FakeRedis(decode_responses=True)
+    settings = make_settings()
+    hb = Heartbeat(settings, redis_client, WorkerStats(), threading.Event(),
+                   ffmpeg_info=("x", "h264_nvenc"), **kwargs)
+    hb.beat()
+    return redis_client.hgetall(f"worker:{settings.worker_id}")
+
+
+def test_gpu_detected_with_name():
+    data = _gpu_beat(processor=_Proc({"nvenc": True, "gpu_name": "RTX 5060 Ti"}))
+    assert data["gpu"] == "RTX 5060 Ti"
+    assert data["nvenc_ok"] == "1"
+    assert data["gpu_encoders"] == "h264_nvenc"
+
+
+def test_gpu_none_when_nvenc_false():
+    data = _gpu_beat(processor=_Proc({"nvenc": False, "gpu_name": None}))
+    assert data["gpu"] == "none"
+    assert data["nvenc_ok"] == "0"
+
+
+def test_gpu_unknown_when_detection_raises():
+    data = _gpu_beat(processor=_Proc(exc=RuntimeError("boom")))
+    assert data["gpu"] == "unknown"
+    assert data["nvenc_ok"] == "0"
+    assert data["worker_id"] == "w1"
+
+
+def test_gpu_unknown_without_detector():
+    assert _gpu_beat(processor=object())["gpu"] == "unknown"
+    data = _gpu_beat()
+    assert data["gpu"] == "unknown"
+    assert data["nvenc_ok"] == "0"
+
+
+def test_explicit_gpu_info_bypasses_detection():
+    proc = _Proc(exc=AssertionError("no debe llamarse"))
+    data = _gpu_beat(processor=proc, gpu_info={"nvenc": True, "gpu_name": "GTX"})
+    assert data["gpu"] == "GTX"
+    assert data["nvenc_ok"] == "1"

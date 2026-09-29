@@ -83,6 +83,8 @@ class Heartbeat(threading.Thread):
         stats: WorkerStats,
         stop_event: threading.Event,
         ffmpeg_info: tuple[str, str] | None = None,
+        processor=None,
+        gpu_info: dict | None = None,
     ):
         super().__init__(daemon=True, name="heartbeat")
         self.settings = settings
@@ -90,8 +92,26 @@ class Heartbeat(threading.Thread):
         self.stats = stats
         self.stop_event = stop_event
         self.ffmpeg_version, self.gpu_encoders = ffmpeg_info if ffmpeg_info is not None else detect_ffmpeg()
+        self.gpu, self.nvenc_ok = self._resolve_gpu(processor, gpu_info)
         self.started_at = datetime.now(timezone.utc).isoformat()
         self.key = f"worker:{settings.worker_id}"
+
+    @staticmethod
+    def _resolve_gpu(processor, gpu_info: dict | None) -> tuple[str, str]:
+        if gpu_info is None:
+            detect = getattr(processor, "detect_hw_encoders", None)
+            if not callable(detect):
+                return "unknown", "0"
+            try:
+                gpu_info = detect()
+            except Exception as e:
+                logger.warning("fallo la deteccion de GPU: %s", e)
+                return "unknown", "0"
+        if not isinstance(gpu_info, dict):
+            return "unknown", "0"
+        if not gpu_info.get("nvenc"):
+            return "none", "0"
+        return str(gpu_info.get("gpu_name") or "unknown"), "1"
 
     def beat(self) -> None:
         stats = self.stats.snapshot()
@@ -111,6 +131,8 @@ class Heartbeat(threading.Thread):
             "failed_count": stats["failed"],
             "ffmpeg_version": self.ffmpeg_version,
             "gpu_encoders": self.gpu_encoders,
+            "gpu": self.gpu,
+            "nvenc_ok": self.nvenc_ok,
             "started_at": self.started_at,
             "last_seen": now,
         }

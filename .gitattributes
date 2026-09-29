@@ -1,0 +1,3 @@
+# Plantillas de entorno siempre con LF, aunque se clonen en Windows (evita \r en los valores).
+.env.example text eol=lf
+.env.demo text eol=lf

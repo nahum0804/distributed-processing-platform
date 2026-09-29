@@ -201,3 +201,18 @@ def test_make_redis_builds_client():
     assert kwargs["port"] == 6379
     assert kwargs["password"] == "pw"
     assert kwargs["decode_responses"] is True
+
+
+def test_from_env_strips_windows_line_endings():
+    s = Settings.from_env({
+        "REDIS_HOST": "192.168.1.10\r",
+        "MINIO_ACCESS_KEY": "minioadmin\r",
+        "REDIS_PASSWORD": "\r",
+        "WORKER_QUEUES": "transcode_video,extract_audio\r",
+        "WORKER_CONCURRENCY": "2\r",
+    })
+    assert s.redis_host == "192.168.1.10"
+    assert s.minio_access_key == "minioadmin"
+    assert s.redis_password is None
+    assert s.worker_queues == ("transcode_video", "extract_audio")
+    assert s.worker_concurrency == 2

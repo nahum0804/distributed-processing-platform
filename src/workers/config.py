@@ -123,6 +123,8 @@ class Settings:
         if env is None:
             dotenv.load_dotenv()
             env = os.environ
+        # A .env saved on Windows carries \r on every value; strip it and stray spaces.
+        env = {k: v.strip() for k, v in env.items() if isinstance(v, str)}
 
         coordinator_url = _str(env, "COORDINATOR_URL", cls.coordinator_url).rstrip("/")
 

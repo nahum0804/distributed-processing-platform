@@ -565,3 +565,28 @@ def test_worker_gpu_override_requests_nvenc_and_gpu_device():
         d["driver"] == "nvidia" and "video" in d["capabilities"] and "gpu" in d["capabilities"]
         for d in devices
     )
+
+
+def test_check_env_file_warns_crlf_empty_password_and_localhost_in_container(tmp_path):
+    from scripts.check_connectivity import check_env_file
+
+    env = tmp_path / ".env"
+    env.write_bytes(b"REDIS_HOST=localhost\r\nREDIS_PASSWORD=\r\n")
+    settings = Settings.from_env({"REDIS_HOST": "localhost", "COORDINATOR_URL": "http://localhost:8000"})
+
+    warnings = check_env_file(settings, env_path=env, in_container=True)
+
+    assert any("CRLF" in w for w in warnings)
+    assert any("REDIS_PASSWORD" in w for w in warnings)
+    assert any("REDIS_HOST" in w and "COORDINATOR_URL" in w for w in warnings)
+
+
+def test_check_env_file_clean_setup_has_no_warnings(tmp_path):
+    from scripts.check_connectivity import check_env_file
+
+    env = tmp_path / ".env"
+    env.write_bytes(b"REDIS_HOST=192.168.1.10\nREDIS_PASSWORD=secreto\n")
+    settings = Settings.from_env({"REDIS_HOST": "192.168.1.10", "REDIS_PASSWORD": "secreto",
+                                  "COORDINATOR_URL": "http://192.168.1.10:8000", "MINIO_ENDPOINT": "192.168.1.10:9000"})
+
+    assert check_env_file(settings, env_path=env, in_container=True) == []

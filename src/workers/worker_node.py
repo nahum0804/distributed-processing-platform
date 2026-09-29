@@ -14,6 +14,7 @@ import redis.exceptions
 
 from src.workers.config import Settings, make_redis
 from src.workers.heartbeat import Heartbeat, WorkerStats
+from src.workers.recovery import ACTIVE_STATES, recover_subtask
 from src.workers.reporter import Reporter
 from src.workers.storage import Storage, StorageError
 
@@ -54,14 +55,24 @@ class Worker:
         self._inflight_key = f"worker:{settings.worker_id}:inflight"
 
     def start(self) -> None:
+        self.recover_own_inflight()
+
         try:
             self.storage.ensure_buckets()
         except StorageError as e:
             logger.warning("no se pudieron asegurar los buckets: %s", e)
 
+        logger.info(
+            "Worker %s iniciado en %s: colas=%s concurrencia=%d hilos_ffmpeg=%d redis=%s:%s coordinador=%s",
+            self.settings.worker_id, self.settings.node_name, ",".join(self.settings.worker_queues),
+            self.settings.worker_concurrency, self.settings.threads_per_job(),
+            self.settings.redis_host, self.settings.redis_port, self.settings.coordinator_url,
+        )
+
         if self.heartbeat_enabled:
             self.heartbeat = Heartbeat(
-                self.settings, self.redis, self.stats, self.stop_event, ffmpeg_info=self.ffmpeg_info
+                self.settings, self.redis, self.stats, self.stop_event,
+                ffmpeg_info=self.ffmpeg_info, processor=self.processor,
             )
             self.heartbeat.start()
 
@@ -83,6 +94,37 @@ class Worker:
             self._flusher.join(timeout)
         if self.heartbeat is not None:
             self.heartbeat.join(timeout)
+
+    def recover_own_inflight(self) -> dict:
+        """Recovers this worker's own leftover inflight subtasks (e.g. a restart with the same worker_id)."""
+        counts = {"requeued": 0, "failed": 0, "cleaned": 0}
+        try:
+            sids = list(self.redis.smembers(self._inflight_key))
+        except Exception as e:
+            logger.warning("no se pudo leer %s al iniciar: %s", self._inflight_key, e)
+            return counts
+
+        for sid in sids:
+            try:
+                data = self.redis.hgetall(f"subtask:{sid}")
+                status = data.get("status") if data else None
+                if data and status in ACTIVE_STATES and data.get("worker_id") == self.settings.worker_id:
+                    result = recover_subtask(
+                        self.redis, self.settings, self.reporter, sid,
+                        reason="worker_restart", reporter_host=self.host,
+                    )
+                    if result in counts:
+                        counts[result] += 1
+            except Exception as e:
+                logger.warning("error recuperando subtarea propia %s al iniciar: %s", sid, e)
+            try:
+                self.redis.srem(self._inflight_key, sid)
+            except Exception as e:
+                logger.warning("no se pudo limpiar %s de %s: %s", sid, self._inflight_key, e)
+
+        if counts["requeued"] or counts["failed"]:
+            logger.warning("worker %s recuperó tareas propias al iniciar: %s", self.settings.worker_id, counts)
+        return counts
 
     def run_forever(self) -> None:
         self.start()
@@ -124,9 +166,25 @@ class Worker:
         item = self.redis.blpop(self.settings.queue_keys(), timeout=timeout)
         if item is None:
             return False
-        _, subtask_id = item
+        queue_name, raw = item
+        subtask_id = self._parse_queue_item(raw)
+        if subtask_id is None:
+            logger.error("item invalido en %s, se descarta: %.200s", queue_name, raw)
+            return True
         self.handle_subtask(subtask_id)
         return True
+
+    @staticmethod
+    def _parse_queue_item(raw: str) -> str | None:
+        """Queue items are a plain subtask id (reaper) or the coordinator's JSON payload."""
+        raw = raw.strip()
+        if not raw.startswith("{"):
+            return raw or None
+        try:
+            subtask_id = json.loads(raw).get("subtask_id")
+        except (json.JSONDecodeError, AttributeError):
+            return None
+        return subtask_id if isinstance(subtask_id, str) and subtask_id else None
 
     def handle_subtask(self, subtask_id: str) -> dict | None:
         subtask_key = f"subtask:{subtask_id}"
@@ -168,6 +226,7 @@ class Worker:
         outputs: list[str] = []
         media_duration_s: float | None = None
         output_bytes = 0
+        encoder: str | None = None
 
         try:
             src = self.storage.download(data["file_path"], in_dir)
@@ -190,6 +249,7 @@ class Worker:
             status = "completed"
             media_duration_s = result.media_duration_s
             output_bytes = result.output_bytes
+            encoder = getattr(result, "encoder", None)
         except StorageError as e:
             status = "failed"
             error = str(e)
@@ -224,6 +284,7 @@ class Worker:
             "processing_s": processing_s,
             "media_duration_s": media_duration_s,
             "output_bytes": output_bytes if status == "completed" else 0,
+            "encoder": encoder,
             "attempts": attempts,
         }
 

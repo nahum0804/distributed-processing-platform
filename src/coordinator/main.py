@@ -126,6 +126,7 @@ class SubtaskReport(BaseModel):
     outputs: Optional[List[str]] = None  # MinIO result keys
     error: Optional[str] = None
     error_type: Optional[str] = None
+    encoder: Optional[str] = None        # FFmpeg encoder used (libx264, h264_nvenc...)
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +313,7 @@ def report_subtask(report: SubtaskReport) -> dict:
         "outputs": json.dumps(report.outputs or []),   # list → JSON string
         "error": _str(report.error),
         "error_type": _str(report.error_type),
+        "encoder": _str(report.encoder),
     }
     redis_client.hset(subtask_key, mapping=subtask_updates)
 
@@ -440,6 +442,7 @@ def get_case_report(case_id: str) -> dict:
             "error": st.get("error") or None,
             "error_type": st.get("error_type") or None,
             "attempts": _int_or_none(st.get("attempts")),
+            "encoder": st.get("encoder") or None,
         }
         by_operation[op].append(entry)
 

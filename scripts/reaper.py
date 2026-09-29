@@ -7,9 +7,10 @@ import threading
 import time
 from datetime import datetime, timezone
 
+from src.workers.recovery import ACTIVE_STATES, recover_subtask
+
 logger = logging.getLogger(__name__)
 
-ACTIVE_STATES = ("assigned", "running")
 TERMINAL_STATES = ("completed", "failed")
 
 
@@ -91,70 +92,15 @@ class Reaper:
             self.redis.srem(inflight_key, sid)
 
     def _recover(self, sid: str, reason: str, counts: dict) -> None:
-        data = self.redis.hgetall(f"subtask:{sid}")
-        status = data.get("status") if data else None
-        if not data or status not in ACTIVE_STATES:
-            counts["cleaned"] += 1
-            return
-
-        attempts = int(data.get("attempts") or 0)
-        operation = data.get("operation")
-
-        if attempts < self.settings.max_attempts:
-            if not operation:
-                logger.error("subtarea %s sin operation, no se puede reencolar", sid)
-                return
-            try:
-                pipe = self.redis.pipeline()
-                pipe.hset(f"subtask:{sid}", mapping={
-                    "status": "queued",
-                    "worker_id": "",
-                    "progress": 0,
-                    "requeued_at": _now_iso(),
-                    "requeue_reason": reason,
-                })
-                pipe.lpush(f"queue:{operation}", sid)
-                pipe.execute()
-                counts["requeued"] += 1
-                logger.warning(
-                    "subtarea %s (operation=%s) reencolada tras %d intentos (%s)",
-                    sid, operation, attempts, reason,
-                )
-            except Exception:
-                logger.exception("no se pudo reencolar subtarea %s", sid)
-            return
-
-        payload = {
-            "subtask_id": sid,
-            "case_id": data.get("case_id"),
-            "worker_id": data.get("worker_id") or "",
-            "host": "reaper",
-            "status": "failed",
-            "result_path": "",
-            "outputs": [],
-            "error": f"Sub-tarea abandonada tras {attempts} intentos ({reason})",
-            "error_type": "WorkerLostError",
-            "started_at": data.get("started_at") or data.get("assigned_at") or "",
-            "finished_at": _now_iso(),
-            "processing_s": 0.0,
-            "media_duration_s": None,
-            "output_bytes": 0,
-            "attempts": attempts,
-        }
-        try:
-            self.redis.hset(f"subtask:{sid}", "requeue_reason", reason)
-        except Exception:
-            logger.exception("no se pudo anotar requeue_reason en subtarea %s", sid)
-
-        try:
-            self.reporter.report(payload)
-        except Exception:
-            logger.exception("no se pudo reportar fallo de subtarea %s", sid)
-        finally:
-            counts["failed"] += 1
-            logger.warning("subtarea %s marcada como fallida tras %d intentos (%s)", sid, attempts, reason)
+        result = recover_subtask(self.redis, self.settings, self.reporter, sid, reason)
+        if result in ("requeued", "failed", "cleaned"):
+            counts[result] += 1
 
     def run_forever(self, stop_event: threading.Event) -> None:
+        logger.info(
+            "Reaper iniciado: intervalo=%ss max_age=%ss max_attempts=%s",
+            self.settings.reaper_interval, self.settings.reaper_max_age, self.settings.max_attempts,
+        )
         while not stop_event.is_set():
             try:
                 self.run_once()

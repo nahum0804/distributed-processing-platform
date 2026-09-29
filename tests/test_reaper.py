@@ -94,7 +94,7 @@ def test_dead_worker_requeues_inflight_to_front_of_queue(redis_client):
 
     for sid in ("sid-1", "sid-2"):
         data = redis_client.hgetall(f"subtask:{sid}")
-        assert data["status"] == "queued"
+        assert data["status"] == "pending"
         assert data["worker_id"] == ""
         assert data["requeue_reason"] == "worker_lost"
         assert "requeued_at" in data
@@ -128,7 +128,7 @@ def test_alive_worker_expired_task_requeued_and_removed_from_inflight(redis_clie
 
     assert counts == {"requeued": 1, "failed": 0, "workers_removed": 0, "cleaned": 0}
     data = redis_client.hgetall("subtask:sid-old")
-    assert data["status"] == "queued"
+    assert data["status"] == "pending"
     assert data["requeue_reason"] == "max_age"
     assert redis_client.sismember("worker:worker-b:inflight", "sid-old") == 0
     assert redis_client.lrange("queue:transcode_video", 0, -1) == ["sid-old"]
@@ -240,7 +240,7 @@ def test_malformed_subtask_missing_operation_does_not_stop_other_sids(redis_clie
     assert counts["requeued"] == 1
     assert counts["workers_removed"] == 1
     good_data = redis_client.hgetall("subtask:sid-good")
-    assert good_data["status"] == "queued"
+    assert good_data["status"] == "pending"
     assert redis_client.lrange("queue:convert_audio", 0, -1) == ["sid-good"]
     bad_data = redis_client.hgetall("subtask:sid-bad")
     assert bad_data["status"] == "assigned"

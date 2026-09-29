@@ -3,6 +3,7 @@ import threading
 import time
 
 import fakeredis
+import pytest
 import requests
 import responses
 
@@ -33,7 +34,7 @@ def seed_subtask(redis_client, storage, sid, case_id="c1", operation="transcode_
         "case_id": case_id,
         "file_path": key,
         "operation": operation,
-        "status": "queued",
+        "status": "pending",
     }
     if params is not None:
         mapping["params"] = json.dumps(params)
@@ -42,6 +43,20 @@ def seed_subtask(redis_client, storage, sid, case_id="c1", operation="transcode_
     redis_client.hset(f"subtask:{sid}", mapping=mapping)
     redis_client.rpush(f"queue:{operation}", sid)
     return key
+
+
+def seed_inflight_leftover(redis_client, sid, *, operation="transcode_video", status="running",
+                            worker_id="w1", attempts=0, case_id="c1", inflight_owner="w1"):
+    redis_client.hset(f"subtask:{sid}", mapping={
+        "subtask_id": sid,
+        "case_id": case_id,
+        "operation": operation,
+        "status": status,
+        "worker_id": worker_id,
+        "attempts": attempts,
+        "assigned_at": "2026-09-27T00:00:00+00:00",
+    })
+    redis_client.sadd(f"worker:{inflight_owner}:inflight", sid)
 
 
 class StubReporter:
@@ -171,7 +186,7 @@ def test_missing_dataset_object_is_storage_error(tmp_path):
     worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
     redis_client.hset("subtask:sid1", mapping={
         "subtask_id": "sid1", "case_id": "c1", "file_path": "c1/sid1/missing.bin",
-        "operation": "transcode_video", "status": "queued",
+        "operation": "transcode_video", "status": "pending",
     })
 
     payload = worker.handle_subtask("sid1")
@@ -256,18 +271,23 @@ def test_reporter_failure_parks_payload_and_still_srems_inflight(tmp_path):
     assert bool(redis_client.sismember("worker:w1:inflight", "sid1")) is False
 
 
-def test_lazy_processor_import_does_not_crash_construction(tmp_path):
+def test_real_processor_failure_is_reported_with_its_error_type(tmp_path):
+    from src.workers import multimedia_processor as mp
+
     redis_client = fakeredis.FakeRedis(decode_responses=True)
     settings = make_settings(tmp_path)
     storage = FakeStorage()
     worker = Worker(settings, redis_client=redis_client, storage=storage, reporter=StubReporter(),
                      heartbeat_enabled=False)
+    assert worker.processor is mp
 
+    # Seeded bytes are not real media: fails as CorruptInputError with FFmpeg, FFmpegNotAvailableError without.
     seed_subtask(redis_client, storage, "sid1")
     payload = worker.handle_subtask("sid1")
 
     assert payload["status"] == "failed"
-    assert payload["error_type"] == "InternalError"
+    assert issubclass(getattr(mp, payload["error_type"]), mp.ProcessingError)
+    assert payload["encoder"] is None
 
 
 def test_start_with_concurrency_two_processes_in_parallel(tmp_path):
@@ -322,3 +342,125 @@ def test_start_continues_when_ensure_buckets_raises_storage_error(tmp_path):
     worker, redis_client, storage, processor, reporter = make_worker(tmp_path, storage=FailingStorage())
     worker.start()
     worker.stop(timeout=2)
+
+
+def test_recover_own_inflight_requeues_own_leftover_subtask(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-left", operation="transcode_video", status="running", worker_id="w1")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 1, "failed": 0, "cleaned": 0}
+    data = redis_client.hgetall("subtask:sid-left")
+    assert data["status"] == "pending"
+    assert data["worker_id"] == ""
+    assert data["requeue_reason"] == "worker_restart"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == ["sid-left"]
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_recover_own_inflight_ignores_subtask_owned_by_another_worker(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-other", operation="transcode_video", status="running", worker_id="w2")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 0, "cleaned": 0}
+    data = redis_client.hgetall("subtask:sid-other")
+    assert data["status"] == "running"
+    assert data["worker_id"] == "w2"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_recover_own_inflight_reports_failure_at_max_attempts(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path, MAX_ATTEMPTS="3")
+    seed_inflight_leftover(
+        redis_client, "sid-doomed", operation="extract_audio", status="running", worker_id="w1", attempts=3,
+    )
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 1, "cleaned": 0}
+    assert redis_client.lrange("queue:extract_audio", 0, -1) == []
+    assert redis_client.smembers("worker:w1:inflight") == set()
+
+    assert len(reporter.calls) == 1
+    payload = reporter.calls[0][1]
+    assert payload["subtask_id"] == "sid-doomed"
+    assert payload["host"] == worker.host
+    assert payload["status"] == "failed"
+    assert payload["error_type"] == "WorkerLostError"
+
+
+def test_recover_own_inflight_removes_terminal_leftover_without_recovering(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-done", status="completed", worker_id="w1")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 0, "cleaned": 0}
+    assert redis_client.smembers("worker:w1:inflight") == set()
+    assert reporter.calls == []
+
+
+def test_start_calls_recover_own_inflight_before_consumers(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    order: list[str] = []
+    original_recover = worker.recover_own_inflight
+
+    def recover_and_record():
+        result = original_recover()
+        order.append("recover")
+        return result
+
+    def consumer_and_record():
+        order.append("consumer")
+
+    worker.recover_own_inflight = recover_and_record
+    worker._consumer_loop = consumer_and_record
+
+    worker.start()
+    time.sleep(0.05)
+    worker.stop(timeout=2)
+
+    assert order[0] == "recover"
+    assert "consumer" in order
+
+
+def test_poll_accepts_coordinator_v3_json_queue_item(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid-json")
+    redis_client.delete("queue:transcode_video")
+    redis_client.rpush("queue:transcode_video", json.dumps({
+        "subtask_id": "sid-json", "case_id": "c1", "task_type": "transcode_video",
+        "file_path": "c1/sid-json/input.bin", "params": {},
+    }))
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert len(processor.calls) == 1
+    assert reporter.calls[-1][1]["subtask_id"] == "sid-json"
+    assert reporter.calls[-1][1]["status"] == "completed"
+
+
+def test_poll_accepts_plain_subtask_id_from_reaper(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid-plain")
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert reporter.calls[-1][1]["subtask_id"] == "sid-plain"
+
+
+@pytest.mark.parametrize("raw", ["{not json", '{"case_id": "c1"}', '{"subtask_id": 5}', "   "])
+def test_poll_discards_invalid_queue_item_without_crashing(tmp_path, raw):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    redis_client.rpush("queue:transcode_video", raw)
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert processor.calls == []
+    assert reporter.calls == []

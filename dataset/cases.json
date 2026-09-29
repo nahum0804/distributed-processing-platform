@@ -1,0 +1,5951 @@
+{
+  "criteria": {
+    "homogeneous": "batch: un lote de ingesta contiene un solo tipo (video o audio) y una sola operacion",
+    "heterogeneous": "event+session: mezcla audio y video con operaciones rotadas por tipo",
+    "user": "user: casos con task_type 'auto' (el sistema decide la operacion)",
+    "case_size": "3-15 sub-tareas por caso",
+    "seed": 42
+  },
+  "cases": [
+    {
+      "name": "homogeneo-lote_a01-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0288_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0290_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0293_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0289_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0291_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0292_light.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a02-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0298_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0296_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0295_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0300_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0299_heavy.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0294_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0297_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a03-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0310_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0304_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0305_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0302_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0308_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0301_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0306_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0303_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0309_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0307_heavy.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a04-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0311_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0312_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0314_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0316_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0318_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0320_light.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a04-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0315_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0319_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0321_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0313_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0317_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a05-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0323_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0328_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0329_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0322_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0324_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0331_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a05-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0332_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0326_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0325_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0333_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0327_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0330_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a06-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0334_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0338_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0342_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0337_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0340_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0336_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0339_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0335_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0341_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a07-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0348_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0346_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0353_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0344_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0347_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0343_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a07-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0351_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0352_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0349_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0350_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0345_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a08-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0355_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0357_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0358_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0354_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0356_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a09-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0362_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0369_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0360_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0364_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0370_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0368_medium.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a09-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0365_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0367_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0361_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0366_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0363_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0359_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a10-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0371_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0376_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0373_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0374_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0372_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0375_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a11-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0378_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0382_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0377_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0380_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0379_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0386_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0384_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0381_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0383_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0385_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a12-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0395_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0390_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0389_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0392_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0394_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0393_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0391_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0387_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0388_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a13-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0396_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0401_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0400_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0397_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0404_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0405_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0399_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0403_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0402_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0398_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a14-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0408_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0410_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0407_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0411_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0406_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0409_heavy.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a15-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0420_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0422_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0418_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0412_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0419_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0421_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a15-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0413_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0415_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0414_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0417_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0416_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a16-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0425_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0426_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0423_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0424_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0427_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a17-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0434_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0438_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0428_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0431_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0439_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0435_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a17-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0436_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0432_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0437_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0429_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0430_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0433_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a18-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0449_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0448_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0443_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0450_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0442_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0440_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a18-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0446_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0447_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0445_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0441_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0444_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a19-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0452_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0454_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0455_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0451_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0453_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a20-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0457_heavy.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0458_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0459_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0461_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0462_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0456_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0460_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0463_heavy.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a21-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0472_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0469_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0468_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0467_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0470_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0466_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0473_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0465_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0471_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0464_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_a22-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0477_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0479_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0474_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0476_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0475_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0478_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v01-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0003_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0004_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0008_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0006_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0001_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0011_heavy.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v01-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0002_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0000_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0010_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0007_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0009_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0005_light.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v02-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0015_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0014_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0016_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0017_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0013_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0012_medium.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v03-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0027_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0028_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0029_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0024_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0020_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0025_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v03-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0019_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0022_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0018_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0023_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0021_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0026_light.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v04-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0035_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0038_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0036_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0037_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0031_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0032_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0034_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0030_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0033_medium.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v05-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0045_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0047_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0041_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0042_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0040_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0043_light.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v05-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0048_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0044_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0046_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0039_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0049_medium.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v06-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0055_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0051_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0058_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0052_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0050_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0054_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0056_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0053_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0057_heavy.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v07-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0066_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0060_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0063_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0069_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0064_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0068_medium.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v07-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0070_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0062_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0065_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0059_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0067_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0061_light.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v08-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0072_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0078_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0081_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0075_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0082_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0074_heavy.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v08-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0076_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0080_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0073_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0079_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0071_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0077_medium.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v09-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0086_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0088_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0084_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0085_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0087_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0083_medium.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v10-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0092_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0093_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0090_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0091_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0089_medium.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v11-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0095_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0103_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0104_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0099_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0101_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0097_heavy.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v11-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0098_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0102_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0096_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0094_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0100_light.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v12-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0106_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0112_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0111_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0109_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0110_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0108_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0105_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0114_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0113_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0107_medium.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v13-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0115_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0118_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0123_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0119_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0117_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0122_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0120_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0116_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0121_medium.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v14-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0128_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0127_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0126_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0125_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0124_medium.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v15-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0129_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0130_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0134_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0133_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0131_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0132_medium.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v16-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0138_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0139_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0141_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0137_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0140_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0135_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0136_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0142_heavy.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v17-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0144_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0147_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0143_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0146_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0145_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v18-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0154_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0153_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0155_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0152_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0149_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0151_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0150_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0148_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0156_heavy.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v19-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0160_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0157_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0158_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0161_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0159_medium.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v20-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0163_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0168_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0164_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0166_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0167_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0165_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0162_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v21-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0178_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0176_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0177_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0180_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0172_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0174_light.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v21-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0170_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0179_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0175_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0169_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0173_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0171_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v22-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0188_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0181_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0186_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0184_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0185_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0183_medium.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v22-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0189_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0190_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0192_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0187_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0182_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0191_heavy.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v23-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0194_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0198_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0201_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0197_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0199_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0196_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0193_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0195_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0200_medium.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v24-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0207_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0204_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0206_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0208_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0203_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0202_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0205_light.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v25-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0209_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0212_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0218_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0219_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0215_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0210_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v25-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0214_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0216_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0213_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0211_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0217_prob_corrupto.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v26-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0222_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0229_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0221_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0231_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0225_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0230_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v26-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0227_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0224_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0223_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0226_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0228_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0220_heavy.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v27-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0234_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0232_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0235_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0237_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0236_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0233_light.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v28-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0245_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0249_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0238_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0248_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0240_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0241_light.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v28-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0247_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0244_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0242_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0246_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0243_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0239_light.mkv",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v29-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0253_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0257_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0259_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0252_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0258_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0250_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0256_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0251_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0255_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0254_heavy.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v30-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0269_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0267_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0261_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0268_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0265_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0270_light.mp4",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v30-2",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0260_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0262_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0263_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0264_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0266_light.avi",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v31-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0273_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0274_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0277_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0279_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0275_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0272_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0278_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0276_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0271_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0280_light.webm",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "homogeneo-lote_v32-1",
+      "kind": "homogeneous",
+      "criterion": "batch",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0281_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0283_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0287_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0286_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0284_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0282_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0285_medium.mov",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/video_0211_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0178_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0060_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0251_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0340_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0450_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0465_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0324_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0411_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0408_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0374_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0210_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/video_0224_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0234_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0212_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0332_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0412_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0350_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0375_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0300_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0425_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0197_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0015_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0209_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0303_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0446_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0454_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0394_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0388_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0362_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0230_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/video_0223_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0046_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0284_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0261_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0469_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0409_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0314_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/video_0031_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0264_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0174_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0110_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0389_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0346_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0431_light.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-boda_garcia-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/video_0225_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "boda_garcia/video_0073_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "boda_garcia/video_0079_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "boda_garcia/video_0019_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "boda_garcia/audio_0315_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "boda_garcia/audio_0308_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0088_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0236_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0127_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0208_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0146_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0042_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0142_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0363_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0440_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0316_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0407_heavy.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0132_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0185_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0242_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0245_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0163_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0180_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0334_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0430_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0459_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0376_heavy.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0171_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0025_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0244_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0213_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0233_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0070_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0461_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0365_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0380_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0249_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0118_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0090_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0253_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0203_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0202_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0387_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0336_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0378_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0395_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0036_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0074_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0115_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0049_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0105_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0032_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0372_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0291_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0438_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0435_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0167_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0219_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0102_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0059_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0157_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0027_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0400_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0344_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0328_heavy.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-clase_redes-sesion2-4",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0039_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "clase_redes/video_0166_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "clase_redes/video_0191_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "clase_redes/video_0267_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/video_0058_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0401_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "clase_redes/audio_0381_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "clase_redes/audio_0326_light.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0161_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0179_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0072_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0053_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0103_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0259_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0137_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0427_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0356_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0464_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0238_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0081_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0255_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0257_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0169_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0198_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0297_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0422_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0243_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0085_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0183_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0207_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0279_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0140_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0339_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0353_light.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion1-4",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0271_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0190_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0145_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0043_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0283_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0104_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0451_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0470_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0057_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0028_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0187_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0096_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0003_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0318_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0310_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0366_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0436_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0442_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0241_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0204_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0106_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0158_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0200_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0473_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0313_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0383_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0413_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-conferencia_os-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "conferencia_os/video_0069_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "conferencia_os/video_0139_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/video_0051_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "conferencia_os/video_0067_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0337_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0445_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "conferencia_os/audio_0305_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "conferencia_os/audio_0476_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0181_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0184_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0188_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0044_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0341_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0319_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0398_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0410_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0377_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0045_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0254_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0232_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0064_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0360_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0475_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0415_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0447_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0472_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0135_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0164_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0124_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0112_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0194_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0005_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0428_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0312_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0386_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0016_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0205_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0269_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0143_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0092_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0309_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0367_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0396_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0168_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0012_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0097_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0128_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0150_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0359_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0429_heavy.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0421_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion2-4",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0076_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0258_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0080_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0047_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0276_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0382_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0457_heavy.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0448_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-documental_mar-sesion2-5",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0170_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "documental_mar/video_0029_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "documental_mar/video_0252_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/video_0108_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "documental_mar/video_0281_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0302_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "documental_mar/audio_0449_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "documental_mar/audio_0304_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0098_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0218_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0156_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0014_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0023_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0432_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0390_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0397_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0478_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0134_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0260_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0054_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0034_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0286_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0317_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0333_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0417_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0414_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0100_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0182_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0240_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0086_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0227_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0468_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0338_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0402_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion1-4",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0275_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0201_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0000_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0087_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0111_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0311_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0321_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0352_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0175_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0226_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0001_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0186_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0048_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0293_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0385_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0404_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0379_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0439_medium.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0035_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0117_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0130_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0149_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0030_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0370_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0325_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0355_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0295_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0358_light.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-entrevista_radio-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0196_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/video_0099_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "entrevista_radio/video_0122_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "entrevista_radio/video_0277_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "entrevista_radio/video_0155_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0419_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0320_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "entrevista_radio/audio_0306_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "entrevista_radio/audio_0290_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0235_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0061_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0040_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0159_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0296_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0443_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0423_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0343_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0066_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0094_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0221_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0287_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0307_heavy.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0453_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0349_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0151_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0063_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0278_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0011_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0298_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0345_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0364_light.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0082_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0214_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0193_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0195_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0116_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0107_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0426_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0288_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0342_medium.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0026_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0162_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0056_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0078_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0141_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0467_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0327_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion3-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0192_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0160_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0089_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0129_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0138_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0441_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0301_heavy.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion3-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0119_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0239_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0121_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0154_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0123_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0391_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0384_light.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion4-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0008_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0126_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0013_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0256_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0217_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0228_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0471_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0347_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0331_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0373_light.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-graduacion_2026-sesion4-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0280_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "graduacion_2026/video_0131_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "graduacion_2026/video_0199_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/video_0263_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "graduacion_2026/video_0095_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0405_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "graduacion_2026/audio_0357_heavy.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "graduacion_2026/audio_0299_heavy.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0147_prob_solo_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0038_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0055_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0206_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0418_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0348_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0458_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0463_heavy.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0009_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0113_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0248_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0018_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0247_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0424_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0368_medium.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion3-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0262_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0006_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0075_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0172_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0068_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0477_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0393_light.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0399_medium.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion3-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0022_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0215_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0272_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0148_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0322_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0455_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0444_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion4-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0189_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0101_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0274_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0114_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0216_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0268_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0452_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0292_light.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion4-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0285_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0176_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0077_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0037_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0250_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/audio_0289_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0392_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-podcast_semanal-sesion4-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0065_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "podcast_semanal/video_0050_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "podcast_semanal/video_0010_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "podcast_semanal/video_0282_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "podcast_semanal/video_0270_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "podcast_semanal/audio_0474_medium.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion1-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0144_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0062_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0246_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0120_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0294_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0335_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0403_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion1-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0002_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0177_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0041_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0071_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0351_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0466_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0434_light.flac",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion1-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0109_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0021_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0273_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0220_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0460_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0323_medium.m4a",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0330_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion2-1",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0153_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0004_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0237_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0024_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0017_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0136_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0406_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0456_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0354_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0329_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion2-2",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0084_prob_sin_audio.mp4",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0033_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0091_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0173_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0125_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0165_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0420_heavy.wav",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0437_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0462_medium.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion2-3",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0231_heavy.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0222_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0266_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0007_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0052_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0229_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0479_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0371_light.wav",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0416_heavy.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "heterogeneo-seminario_ia-sesion2-4",
+      "kind": "heterogeneous",
+      "criterion": "event+session",
+      "subtasks": [
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0265_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0152_heavy.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_audio",
+          "file_path": "seminario_ia/video_0093_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "generate_thumbnail",
+          "file_path": "seminario_ia/video_0083_medium.mov",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/video_0020_heavy.mkv",
+          "params": null
+        },
+        {
+          "task_type": "transcode_video",
+          "file_path": "seminario_ia/video_0133_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0361_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "convert_audio",
+          "file_path": "seminario_ia/audio_0433_medium.flac",
+          "params": null
+        },
+        {
+          "task_type": "extract_metadata",
+          "file_path": "seminario_ia/audio_0369_medium.mp3",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "usuario-usuario04-1",
+      "kind": "heterogeneous",
+      "criterion": "user",
+      "subtasks": [
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/video_0287_light.webm",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "clase_redes/video_0118_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/video_0000_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "documental_mar/video_0143_light.mkv",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/audio_0443_medium.wav",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "clase_redes/audio_0328_heavy.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "documental_mar/audio_0377_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "usuario-usuario08-1",
+      "kind": "heterogeneous",
+      "criterion": "user",
+      "subtasks": [
+        {
+          "task_type": "auto",
+          "file_path": "conferencia_os/video_0072_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "conferencia_os/video_0104_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "podcast_semanal/video_0148_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/video_0227_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/audio_0327_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/audio_0434_light.flac",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/audio_0298_medium.m4a",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "usuario-usuario08-2",
+      "kind": "heterogeneous",
+      "criterion": "user",
+      "subtasks": [
+        {
+          "task_type": "auto",
+          "file_path": "conferencia_os/video_0081_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/video_0138_heavy.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "clase_redes/video_0088_medium.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "boda_garcia/audio_0340_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/audio_0420_heavy.wav",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "usuario-usuario03-1",
+      "kind": "heterogeneous",
+      "criterion": "user",
+      "subtasks": [
+        {
+          "task_type": "auto",
+          "file_path": "podcast_semanal/video_0101_prob_corrupto.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/video_0186_medium.mkv",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/video_0063_light.mov",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "podcast_semanal/video_0018_light.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/video_0117_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "documental_mar/video_0168_heavy.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "graduacion_2026/audio_0299_heavy.flac",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/audio_0369_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/audio_0361_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/audio_0293_light.ogg",
+          "params": null
+        }
+      ]
+    },
+    {
+      "name": "usuario-usuario10-1",
+      "kind": "heterogeneous",
+      "criterion": "user",
+      "subtasks": [
+        {
+          "task_type": "auto",
+          "file_path": "clase_redes/video_0059_light.mp4",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "conferencia_os/video_0069_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/video_0265_medium.avi",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/video_0014_medium.webm",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "documental_mar/audio_0359_medium.mp3",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "documental_mar/audio_0428_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "boda_garcia/audio_0412_light.m4a",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "entrevista_radio/audio_0414_medium.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "seminario_ia/audio_0460_light.ogg",
+          "params": null
+        },
+        {
+          "task_type": "auto",
+          "file_path": "clase_redes/audio_0381_medium.wav",
+          "params": null
+        }
+      ]
+    }
+  ]
+}

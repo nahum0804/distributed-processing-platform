@@ -246,3 +246,33 @@ def test_fake_processor_supported_operations():
     fake = make_fake_processor()
     assert "transcode_video" in fake.SUPPORTED_OPERATIONS
     assert len(fake.SUPPORTED_OPERATIONS) == 5
+
+
+def test_download_result_strips_bucket_prefix(tmp_path):
+    client = MagicMock()
+    storage = Storage(make_settings(RESULTS_BUCKET="results"), client=client)
+
+    result = storage.download_result("results/case1/sub1/out.mp4", tmp_path / "a" / "b")
+
+    expected = tmp_path / "a" / "b" / "out.mp4"
+    client.fget_object.assert_called_once_with("results", "case1/sub1/out.mp4", str(expected))
+    assert result == expected
+    assert expected.parent.is_dir()
+
+
+def test_download_result_accepts_bare_key(tmp_path):
+    client = MagicMock()
+    storage = Storage(make_settings(RESULTS_BUCKET="results"), client=client)
+
+    storage.download_result("case1/sub1/out.mp4", tmp_path)
+
+    client.fget_object.assert_called_once_with("results", "case1/sub1/out.mp4", str(tmp_path / "out.mp4"))
+
+
+def test_download_result_wraps_client_exception(tmp_path):
+    client = MagicMock()
+    client.fget_object.side_effect = OSError("boom")
+    storage = Storage(make_settings(), client=client)
+
+    with pytest.raises(StorageError):
+        storage.download_result("results/c/s/x.mp4", tmp_path)

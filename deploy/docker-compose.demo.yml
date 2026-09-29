@@ -1,0 +1,26 @@
+# Demo en vivo para desarrollar el dashboard sin .env: levanta todo el sistema local
+# (redis, minio, coordinator, reaper, 3 workers) y un "feeder" que envia casos aleatorios.
+# Uso: docker compose -f deploy/docker-compose.demo.yml up -d --build
+
+include:
+  - docker-compose.local.yml
+
+services:
+  feeder:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    command: ["python", "-m", "scripts.demo_feeder"]
+    environment:
+      COORDINATOR_URL: http://coordinator:8000
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      DEMO_INTERVAL: ${DEMO_INTERVAL:-8}
+      DEMO_MAX_CASES: ${DEMO_MAX_CASES:-0}
+    depends_on:
+      coordinator:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped

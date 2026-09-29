@@ -22,9 +22,12 @@ La plataforma se distribuye en máquinas con roles especializados según CPU y G
 - Concurrencia: 3 (máquina de 16 núcleos)
 - threads_per_job = 16 // 3 ≈ 5 por subtarea
 - Env: `WORKER_QUEUES=transcode_video,extract_audio` y `WORKER_CONCURRENCY=3`
+- Si esta máquina tiene GPU NVIDIA, el nodo de video combina `WORKER_QUEUES=transcode_video,extract_audio` con `HWACCEL=nvenc` (ver "Nodo GPU" más abajo)
 
 **Máquina D (opcional, genérico):**
 - Igual a B; si no existe, A también corre un worker genérico
+
+Cada worker consume primero las colas de alta prioridad (`queue:{op}:high`) de todas sus operaciones y luego las normales (`queue:{op}`); el coordinador las producirá cuando soporte prioridad.
 
 La asignación de operaciones (`WORKER_QUEUES`) y concurrencia (`WORKER_CONCURRENCY`) controla cómo se reparten los recursos (CPU, GPU, memoria) entre subtareas. El campo `encoder` en el reporte permite análisis de qué máquina procesó cada tarea y con qué eficiencia.
 
@@ -235,6 +238,16 @@ docker compose -f deploy/docker-compose.worker.yml up -d --scale worker=3
 
 Cada worker verá su propio `hostname` (ID corto del contenedor) pero el mismo `host` (NODE_NAME del env). El coordinador y dashboard pueden diferenciar por `worker_id`.
 
+#### 5. Nodo GPU (NVENC)
+
+`HWACCEL=nvenc` en `.env` hace que el worker pida NVENC en `transcode_video` (si falla o no hay GPU, cae a CPU; un `hwaccel` explícito en los params de la subtarea tiene prioridad). Solo se pone en el nodo GPU; el heartbeat lo publica como `hwaccel`. En Docker, el override da acceso a la GPU (driver NVIDIA; en Windows Docker Desktop con WSL2, en Linux nvidia-container-toolkit):
+
+```bash
+docker compose -f deploy/docker-compose.worker.yml -f deploy/docker-compose.worker-gpu.yml up -d --build
+```
+
+Verificar en Redis los campos `gpu`, `nvenc_ok` y `hwaccel` del heartbeat (`HMGET worker:<worker_id> gpu nvenc_ok hwaccel`). El nodo de video especializado combina `WORKER_QUEUES=transcode_video,extract_audio` + `HWACCEL=nvenc`.
+
 ### Opción B: Nativo (máquinas Windows con GPU, o desarrollo)
 
 #### 1. Crear venv e instalar dependencias
@@ -280,6 +293,8 @@ python -m scripts.check_connectivity
 ```
 
 #### 5. Ejecutar worker
+
+Para usar la GPU, agregar `HWACCEL=nvenc` al `.env` de esta máquina.
 
 ```bash
 # Windows

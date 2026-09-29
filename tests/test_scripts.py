@@ -541,3 +541,27 @@ def test_worker_compose_has_stop_grace_period():
     compose = _load_compose("deploy/docker-compose.worker.yml")
     worker = compose["services"]["worker"]
     assert "stop_grace_period" in worker
+
+
+def test_worker_compose_grace_period_covers_max_ffmpeg_timeout():
+    compose = _load_compose("deploy/docker-compose.worker.yml")
+    grace = compose["services"]["worker"]["stop_grace_period"]
+    match = re.fullmatch(r"(\d+)([smh])", str(grace))
+    assert match, grace
+    seconds = int(match.group(1)) * {"s": 1, "m": 60, "h": 3600}[match.group(2)]
+    assert seconds >= 30 * 60
+
+
+def test_worker_gpu_override_requests_nvenc_and_gpu_device():
+    compose = _load_compose("deploy/docker-compose.worker-gpu.yml")
+    worker = compose["services"]["worker"]
+    env = worker["environment"]
+    if isinstance(env, list):
+        env = dict(item.split("=", 1) for item in env)
+    assert env["HWACCEL"] == "nvenc"
+    assert "video" in env["NVIDIA_DRIVER_CAPABILITIES"].split(",")
+    devices = worker["deploy"]["resources"]["reservations"]["devices"]
+    assert any(
+        d["driver"] == "nvidia" and "video" in d["capabilities"] and "gpu" in d["capabilities"]
+        for d in devices
+    )

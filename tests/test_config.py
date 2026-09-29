@@ -155,7 +155,26 @@ def test_coordinator_url_trailing_slash_stripped():
 
 def test_queue_keys_order():
     s = Settings.from_env({"WORKER_QUEUES": "generate_thumbnail,transcode_video"})
-    assert s.queue_keys() == ["queue:generate_thumbnail", "queue:transcode_video"]
+    assert s.queue_keys() == [
+        "queue:generate_thumbnail:high", "queue:transcode_video:high",
+        "queue:generate_thumbnail", "queue:transcode_video",
+    ]
+
+
+def test_hwaccel_default_none_and_empty_is_none():
+    assert Settings.from_env({}).hwaccel is None
+    assert Settings.from_env({"HWACCEL": ""}).hwaccel is None
+    assert Settings.from_env({"HWACCEL": "  "}).hwaccel is None
+
+
+@pytest.mark.parametrize("raw", ["nvenc", "NVENC", " Nvenc "])
+def test_hwaccel_nvenc_case_insensitive(raw):
+    assert Settings.from_env({"HWACCEL": raw}).hwaccel == "nvenc"
+
+
+def test_hwaccel_invalid_raises_naming_value():
+    with pytest.raises(ValueError, match="cuda"):
+        Settings.from_env({"HWACCEL": "cuda"})
 
 
 def test_threads_per_job(monkeypatch):

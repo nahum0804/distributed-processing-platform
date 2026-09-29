@@ -234,6 +234,12 @@ class Worker:
             self.redis.hset(subtask_key, mapping={"status": "running", "started_at": started_at, "progress": 0})
 
             params = self._parse_params(data.get("params"), subtask_id)
+            if (
+                self.settings.hwaccel
+                and data["operation"] == "transcode_video"
+                and "hwaccel" not in params
+            ):
+                params["hwaccel"] = self.settings.hwaccel
             on_progress = self._make_progress_callback(subtask_key)
 
             result = self.processor.process(

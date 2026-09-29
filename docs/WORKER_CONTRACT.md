@@ -75,7 +75,9 @@ Cinco operaciones definidas en `OPERATIONS`, cada una con su propia cola Redis:
 | `convert_audio` | `queue:convert_audio` | Convertir audio (WAV, AAC, FLAC) a MP3 |
 | `extract_metadata` | `queue:extract_metadata` | Extraer JSON de ffprobe (formato, streams, duración) |
 
-El worker se suscribe a un subconjunto mediante `WORKER_QUEUES` (por defecto todas 5). El ordenamiento de colas en `BLPOP()` determina la prioridad: primera cola tiene prioridad más alta.
+Cada operación tiene además una cola de alta prioridad `queue:{op}:high` (p. ej. `queue:transcode_video:high`). El worker la consume antes que las normales; el coordinador la producirá cuando soporte `priority` (hoy solo produce `queue:{op}`).
+
+El worker se suscribe a un subconjunto mediante `WORKER_QUEUES` (por defecto todas 5). El orden de las claves en `BLPOP()` determina la prioridad: primero todas las colas `:high` de sus operaciones (en el orden de `WORKER_QUEUES`) y después todas las normales, también en ese orden. El reaper reencola en la cola normal con `LPUSH` (al frente).
 
 Ver `docs/OPERATIONS.md` para detalles de cada operación.
 
@@ -150,6 +152,7 @@ Estado de vitalidad del worker. El heartbeat escribe cada `HEARTBEAT_INTERVAL` (
 | `gpu_encoders` | str | `"h264_nvenc,h264_qsv"` o `"none"` | Encoders de hardware **compilados** en el build de FFmpeg (`ffmpeg -encoders`). No garantiza que exista la GPU: el FFmpeg de Debian los trae aunque la máquina no tenga GPU. Para saber qué se usó realmente, ver `encoder` en el reporte de cada sub-tarea |
 | `gpu` | str | `"NVIDIA GeForce RTX 3080"`, `"none"`, `"unknown"` | GPU detectada (verificada con test de encoding real) o `"none"` si no hay, `"unknown"` si no se pudo detectar |
 | `nvenc_ok` | str | `"1"` o `"0"` | `"1"` si NVENC fue verificado exitosamente; `"0"` si no hay GPU o la verificación falló |
+| `hwaccel` | str | `"nvenc"` o `"none"` | Aceleración por hardware solicitada por el worker (`HWACCEL`); `transcode_video` la usa con fallback automático a CPU |
 | `started_at` | str ISO | `"2025-02-14T09:00:00.000000+00:00"` | Timestamp UTC del startup del worker |
 | `last_seen` | str ISO | `"2025-02-14T10:35:10.000000+00:00"` | Timestamp UTC del último heartbeat |
 

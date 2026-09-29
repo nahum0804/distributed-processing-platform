@@ -133,6 +133,7 @@ class Heartbeat(threading.Thread):
             "gpu_encoders": self.gpu_encoders,
             "gpu": self.gpu,
             "nvenc_ok": self.nvenc_ok,
+            "hwaccel": self.settings.hwaccel or "none",
             "started_at": self.started_at,
             "last_seen": now,
         }

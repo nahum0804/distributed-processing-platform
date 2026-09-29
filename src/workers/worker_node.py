@@ -165,9 +165,25 @@ class Worker:
         item = self.redis.blpop(self.settings.queue_keys(), timeout=timeout)
         if item is None:
             return False
-        _, subtask_id = item
+        queue_name, raw = item
+        subtask_id = self._parse_queue_item(raw)
+        if subtask_id is None:
+            logger.error("item invalido en %s, se descarta: %.200s", queue_name, raw)
+            return True
         self.handle_subtask(subtask_id)
         return True
+
+    @staticmethod
+    def _parse_queue_item(raw: str) -> str | None:
+        """Queue items are a plain subtask id (reaper) or the coordinator's JSON payload."""
+        raw = raw.strip()
+        if not raw.startswith("{"):
+            return raw or None
+        try:
+            subtask_id = json.loads(raw).get("subtask_id")
+        except (json.JSONDecodeError, AttributeError):
+            return None
+        return subtask_id if isinstance(subtask_id, str) and subtask_id else None
 
     def handle_subtask(self, subtask_id: str) -> dict | None:
         subtask_key = f"subtask:{subtask_id}"

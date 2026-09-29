@@ -35,7 +35,7 @@ def recover_subtask(redis_client, settings, reporter, sid: str, reason: str, rep
         try:
             pipe = redis_client.pipeline()
             pipe.hset(f"subtask:{sid}", mapping={
-                "status": "queued",
+                "status": "pending",
                 "worker_id": "",
                 "progress": 0,
                 "requeued_at": _now_iso(),

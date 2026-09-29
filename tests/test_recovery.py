@@ -67,7 +67,7 @@ def test_requeues_to_front_of_queue(redis_client):
     assert queue == ["sid-1", "existing-1"]
 
     data = redis_client.hgetall("subtask:sid-1")
-    assert data["status"] == "queued"
+    assert data["status"] == "pending"
     assert data["worker_id"] == ""
     assert data["progress"] == "0"
     assert data["requeue_reason"] == "worker_restart"

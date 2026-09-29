@@ -3,6 +3,7 @@ import threading
 import time
 
 import fakeredis
+import pytest
 import requests
 import responses
 
@@ -33,7 +34,7 @@ def seed_subtask(redis_client, storage, sid, case_id="c1", operation="transcode_
         "case_id": case_id,
         "file_path": key,
         "operation": operation,
-        "status": "queued",
+        "status": "pending",
     }
     if params is not None:
         mapping["params"] = json.dumps(params)
@@ -185,7 +186,7 @@ def test_missing_dataset_object_is_storage_error(tmp_path):
     worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
     redis_client.hset("subtask:sid1", mapping={
         "subtask_id": "sid1", "case_id": "c1", "file_path": "c1/sid1/missing.bin",
-        "operation": "transcode_video", "status": "queued",
+        "operation": "transcode_video", "status": "pending",
     })
 
     payload = worker.handle_subtask("sid1")
@@ -351,7 +352,7 @@ def test_recover_own_inflight_requeues_own_leftover_subtask(tmp_path):
 
     assert counts == {"requeued": 1, "failed": 0, "cleaned": 0}
     data = redis_client.hgetall("subtask:sid-left")
-    assert data["status"] == "queued"
+    assert data["status"] == "pending"
     assert data["worker_id"] == ""
     assert data["requeue_reason"] == "worker_restart"
     assert redis_client.lrange("queue:transcode_video", 0, -1) == ["sid-left"]
@@ -427,3 +428,39 @@ def test_start_calls_recover_own_inflight_before_consumers(tmp_path):
 
     assert order[0] == "recover"
     assert "consumer" in order
+
+
+def test_poll_accepts_coordinator_v3_json_queue_item(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid-json")
+    redis_client.delete("queue:transcode_video")
+    redis_client.rpush("queue:transcode_video", json.dumps({
+        "subtask_id": "sid-json", "case_id": "c1", "task_type": "transcode_video",
+        "file_path": "c1/sid-json/input.bin", "params": {},
+    }))
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert len(processor.calls) == 1
+    assert reporter.calls[-1][1]["subtask_id"] == "sid-json"
+    assert reporter.calls[-1][1]["status"] == "completed"
+
+
+def test_poll_accepts_plain_subtask_id_from_reaper(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid-plain")
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert reporter.calls[-1][1]["subtask_id"] == "sid-plain"
+
+
+@pytest.mark.parametrize("raw", ["{not json", '{"case_id": "c1"}', '{"subtask_id": 5}', "   "])
+def test_poll_discards_invalid_queue_item_without_crashing(tmp_path, raw):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    redis_client.rpush("queue:transcode_video", raw)
+
+    assert worker.poll_once(timeout=1) is True
+
+    assert processor.calls == []
+    assert reporter.calls == []

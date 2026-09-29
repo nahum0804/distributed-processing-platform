@@ -4,13 +4,13 @@ Esta guía describe cómo desplegar workers en máquinas heterogéneas: máquina
 
 ## Topología y roles
 
-La plataforma se distribuye en máquinas con roles especializados según CPU y GPU disponible. Esta heterogeneidad de recursos (Unidad 1 del curso Sistemas Operativos) es fundamental para optimizar throughput y latencia.
+La plataforma se distribuye en máquinas con roles según la CPU y la GPU disponibles. Esta heterogeneidad de recursos (Unidad 1 del curso Sistemas Operativos) es fundamental para optimizar throughput y latencia. El modelo elegido es **híbrido**: nodos genéricos que atienden las 5 operaciones más un nodo especializado en video (con GPU si la tiene). La justificación está en `docs/DECISIONES_DISENO.md` (decisiones 3 y 4).
 
 **Máquina A (coordinador):**
 - Redis (broker de mensajes y estado compartido)
 - MinIO (almacenamiento de entrada y salida)
 - Reaper (recuperación de subtareas huérfanas)
-- Coordinador (nativo, Python; futura: contenedor)
+- Coordinador (nativo con uvicorn; en `deploy/docker-compose.local.yml` corre en contenedor)
 
 **Máquina B (worker genérico):**
 - Procesa todas las 5 operaciones: `transcode_video`, `extract_audio`, `generate_thumbnail`, `convert_audio`, `extract_metadata`
@@ -27,9 +27,9 @@ La plataforma se distribuye en máquinas con roles especializados según CPU y G
 **Máquina D (opcional, genérico):**
 - Igual a B; si no existe, A también corre un worker genérico
 
-Cada worker consume primero las colas de alta prioridad (`queue:{op}:high`) de todas sus operaciones y luego las normales (`queue:{op}`); el coordinador las producirá cuando soporte prioridad.
+Cada worker consume primero las colas de alta prioridad (`queue:{op}:high`) de todas sus operaciones y luego las normales (`queue:{op}`). El coordinador envía a las colas `:high` los casos creados con `"priority": "high"`.
 
-La asignación de operaciones (`WORKER_QUEUES`) y concurrencia (`WORKER_CONCURRENCY`) controla cómo se reparten los recursos (CPU, GPU, memoria) entre subtareas. El campo `encoder` en el reporte permite análisis de qué máquina procesó cada tarea y con qué eficiencia.
+Los nodos no reciben tareas asignadas: cada worker toma trabajo (`BLPOP`) de las colas de las operaciones que declara en `WORKER_QUEUES` cuando le queda capacidad libre (`WORKER_CONCURRENCY`). Por eso un nodo genérico y el nodo de video compiten sanamente por `transcode_video`, y el más rápido termina procesando más. La asignación de operaciones (`WORKER_QUEUES`) y la concurrencia controlan cómo se reparten los recursos (CPU, GPU, memoria) entre subtareas. Los campos `host` y `encoder` del reporte permiten analizar qué máquina procesó cada tarea y con qué codificador (`libx264` en CPU, `h264_nvenc` en GPU).
 
 ## Requisitos
 
@@ -125,7 +125,7 @@ Ejecutar el coordinador:
 python -m uvicorn src.coordinator.main:app --host 0.0.0.0 --port 8000 --env-file .env
 ```
 
-Verificar: `http://localhost:8000/docs` (Swagger UI)
+Verificar: `http://localhost:8000/docs` (Swagger UI) y `curl http://localhost:8000/stats` (colas, casos por estado y workers vivos).
 
 ### 5. Popular MinIO con datos de prueba
 
@@ -142,7 +142,9 @@ Subir a MinIO:
 python -m scripts.seed_minio data/videos --prefix test-dataset
 ```
 
-Esto crea objetos en MinIO bucket `dataset` con claves como `test-dataset/video1.mp4`.
+Esto crea objetos en MinIO bucket `dataset` con claves como `test-dataset/video1.mp4`. Esa clave (sin el nombre del bucket) es la que se usa como `file_path` en `POST /cases`.
+
+Para la corrida completa con el dataset del proyecto (480 archivos, 135 casos) ver la sección "Dataset y prueba de carga".
 
 ## Máquinas Worker: Docker o Nativo
 
@@ -206,13 +208,13 @@ python -m scripts.check_connectivity
 docker compose -f deploy/docker-compose.worker.yml run --rm worker python -m scripts.check_connectivity
 ```
 
-Debería mostrar:
+Con `--create-buckets` también crea los buckets `dataset` y `results` si no existen. Debería mostrar:
 
 ```
 [OK] redis: Redis OK en 192.168.1.50:6379
 [OK] coordinator: Coordinador OK en http://192.168.1.50:8000
 [OK] minio: MinIO OK en 192.168.1.50:9000
-[OK] ffmpeg: ffmpeg OK: ffmpeg version 5.1.2
+[OK] ffmpeg: ffmpeg OK: ffmpeg version 7.1.x
 [OK] work_dir: WORK_DIR escribible: /tmp/mm-worker
 ```
 
@@ -246,7 +248,7 @@ Cada worker verá su propio `hostname` (ID corto del contenedor) pero el mismo `
 docker compose -f deploy/docker-compose.worker.yml -f deploy/docker-compose.worker-gpu.yml up -d --build
 ```
 
-Verificar en Redis los campos `gpu`, `nvenc_ok` y `hwaccel` del heartbeat (`HMGET worker:<worker_id> gpu nvenc_ok hwaccel`). El nodo de video especializado combina `WORKER_QUEUES=transcode_video,extract_audio` + `HWACCEL=nvenc`.
+Verificar los campos `gpu`, `nvenc_ok` y `hwaccel` del heartbeat, con `curl http://<A-IP>:8000/workers` o `redis-cli HMGET worker:<worker_id> gpu nvenc_ok hwaccel`. La GPU se detecta con una codificación NVENC real (`detect_hw_encoders`), no solo mirando `ffmpeg -encoders`. El nodo de video especializado combina `WORKER_QUEUES=transcode_video,extract_audio` + `HWACCEL=nvenc`; el campo `encoder` de cada sub-tarea confirma qué se usó (`h264_nvenc` o, con respaldo, `libx264`).
 
 ### Opción B: Nativo (máquinas Windows con GPU, o desarrollo)
 
@@ -396,42 +398,45 @@ Acceder a coordinador: `http://localhost:8000/docs`
 
 ### Prueba de extremo a extremo
 
-1. Crear datos de prueba:
+1. Configurar el entorno local: `cp .env.demo .env` (usa `localhost` y la contraseña `localdev` del compose local).
+
+2. Crear datos de prueba:
 
 ```bash
 mkdir -p /tmp/test-videos
-# Copiar videos a /tmp/test-videos
+# Copiar videos y audios a /tmp/test-videos
 ```
 
-2. Seed (si es necesario, configurar REDIS_PASSWORD=localdev en .env):
-
-```bash
-python -m scripts.seed_minio /tmp/test-videos --prefix test
-```
-
-3. Enviar casos:
+3. Enviar casos. `submit_case` sube los archivos a MinIO por sí mismo (no hace falta `seed_minio`):
 
 ```bash
 python -m scripts.submit_case --dir /tmp/test-videos --mode mixed --timeout 120
 ```
 
-Verá progreso en tiempo real:
+Verá progreso en tiempo real (`<case_id> <estado> <ok>/<fallidas>/<total>`), el reporte consolidado y un resumen:
 
 ```
-Config: worker_id=... redis=redis:6379 coordinator_url=http://coordinator:8000 ...
-550e8400-e29b-41d4-a716-446655440000 queued ...
-550e8400-e29b-41d4-a716-446655440000 processing 3/?/5
-...
+550e8400-e29b-41d4-a716-446655440000 queued 0/0/5
+550e8400-e29b-41d4-a716-446655440000 processing 0/0/5
+550e8400-e29b-41d4-a716-446655440000 completed 5/0/5
+Reporte 550e8400-e29b-41d4-a716-446655440000 [prioridad normal]: 5 ok
+  por tipo/operacion: video/transcode_video=completed:1,failed:0,other:0 ...
+  prom(s) por host: 1a2b3c=1.20, 4d5e6f=0.95
+
 Resumen:
-case_id                                status            ok/fail/total   tiempo(s)
-550e8400-e29b-41d4-a716-446655440000   completed         5/0/5           12.3
+case_id                                status               ok/fail/total   tiempo(s)
+550e8400-e29b-41d4-a716-446655440000   completed            5/0/5           12.3
 ```
+
+4. Bajar los resultados y el reporte del caso: `python -m scripts.fetch_results <case_id> --out resultados` (ver "Descarga de resultados").
 
 Limpiar:
 
 ```bash
 docker compose -f deploy/docker-compose.local.yml down
 ```
+
+Para una demo con casos que llegan solos (prioridades, cancelaciones, archivos problemáticos) ver `docs/DEMO.md`.
 
 ## Envío de casos y monitoreo
 
@@ -446,6 +451,8 @@ python -m scripts.submit_case \
   [--mode auto|mixed|<operacion>] \
   [--no-upload] \
   [--repeat N] \
+  [--priority normal|high] \
+  [--cancel-after SEGUNDOS] \
   [--timeout S] \
   [--poll T]
 ```
@@ -455,16 +462,19 @@ python -m scripts.submit_case \
 - `--dir`: requerido; carpeta con archivos multimedia
 - `--prefix`: opcional; prefijo MinIO (default: nombre de carpeta)
 - `--mode`:
-  - `auto`: envía `task_type: "auto"` al coordinador; el coordinador detecta por extensión (video → transcode_video, audio → convert_audio)
+  - `auto`: envía `task_type: "auto"` al coordinador; el coordinador detecta por extensión (video → `transcode_video`, audio → `convert_audio`, otro → `extract_metadata`). El script omite los archivos que no son audio ni video en este modo
   - `mixed`: cicla por operaciones en el cliente (video: transcode → extract_audio → generate_thumbnail → metadata; audio: convert → metadata)
   - `<operacion>`: una de las 5 operaciones explícitamente
 - `--no-upload`: saltarse upload a MinIO (debug)
 - `--repeat N`: crear N casos en paralelo
+- `--priority`: prioridad del caso (`normal` por defecto, o `high` para `queue:{op}:high`)
+- `--cancel-after S`: cancela los casos S segundos después de enviarlos (`POST /cases/{id}/cancel`); demuestra la cancelación y los estados `cancelled`
 - `--timeout S`: segundos máximo para esperar (default 600)
 - `--poll T`: intervalo de polling (default 2 s)
 
-**Comportamiento v3:**
-- Al finalizar, `submit_case` imprime el reporte consolidado si el caso está completado (resumen, totales, desgloses de fallo, promedios de procesamiento por operación y host)
+**Comportamiento v4:**
+- Al finalizar (estado terminal), `submit_case` imprime el reporte consolidado: resumen, prioridad, totales por tipo y operación, desglose de fallos y promedio de procesamiento por host.
+- Códigos de salida: 0 si todos los casos terminaron, 2 si alguno superó `--timeout`, 1 en caso de error.
 
 **Ejemplo:**
 
@@ -475,6 +485,17 @@ python -m scripts.submit_case \
   --mode mixed \
   --repeat 3 \
   --timeout 300
+```
+
+### Monitoreo por la API del coordinador
+
+```bash
+curl http://192.168.1.50:8000/stats                       # colas, casos por estado, workers vivos
+curl http://192.168.1.50:8000/workers                     # heartbeat de cada worker (campo "alive")
+curl "http://192.168.1.50:8000/cases?status=retrying"     # casos por estado
+curl http://192.168.1.50:8000/cases/<case_id>/report      # reporte consolidado
+curl http://192.168.1.50:8000/subtasks/<subtask_id>       # una sub-tarea
+curl -X POST http://192.168.1.50:8000/cases/<case_id>/cancel
 ```
 
 ### Monitoreo en Redis
@@ -492,11 +513,49 @@ Ver subtarea:
 redis-cli -h 192.168.1.50 -a tu_password HGETALL subtask:a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11
 ```
 
-Ver reportes pendientes:
+Ver colas y reportes pendientes:
 
 ```bash
+redis-cli -h 192.168.1.50 -a tu_password LLEN queue:transcode_video
+redis-cli -h 192.168.1.50 -a tu_password LLEN queue:transcode_video:high
 redis-cli -h 192.168.1.50 -a tu_password LLEN reports:pending
 ```
+
+## Dataset y prueba de carga
+
+El dataset del proyecto (480 archivos reales de audio y video, ~656 MB, 14 problemáticos a propósito) y sus 135 casos se describen en `dataset/README.md`.
+
+1. **Generar el dataset** (una vez; dentro de la imagen del worker para usar la misma versión de FFmpeg):
+
+```bash
+docker run --rm -v "$PWD/dataset:/app/dataset" <imagen-worker> \
+    python -m scripts.build_dataset --out dataset --files 480 --seed 42
+```
+
+2. **Subir y ejecutar la carga** (desde una máquina con `.env` apuntando a A):
+
+```bash
+python -m scripts.run_load --dataset dataset --upload --concurrency 8 --high-fraction 0.1 --seed 42
+```
+
+`run_load` sube los archivos a MinIO (omite los que ya existen con el mismo tamaño), envía los casos con `metadata` (nombre, tipo y criterio del caso, y los metadatos de cada archivo), asigna prioridad alta a una fracción reproducible de ellos (`--high-fraction`, `--seed`), muestrea `GET /stats` y los heartbeats mientras corre y escribe `docs/evidencia/carga_<fecha>.json` y `.md` con tiempos por caso, reparto por host, promedios por operación, fallos por `error_type`, comparación prioridad alta vs normal, saturación y largo máximo de las colas.
+
+3. **Casos aleatorios adicionales** (100 a 500 casos con archivos reales del manifiesto):
+
+```bash
+python -m scripts.generate_dataset --url http://192.168.1.50:8000 --seed 1
+python -m scripts.generate_dataset --dry-run          # solo muestra los payloads
+```
+
+Requiere que los archivos ya estén en MinIO (paso 2 con `--upload`) y `dataset/manifest.json`; usa las claves reales del manifiesto, así que las sub-tareas se procesan de verdad.
+
+### Descarga de resultados
+
+```bash
+python -m scripts.fetch_results <case_id> [<case_id> ...] --out resultados [--only-completed]
+```
+
+Baja de MinIO (bucket `results`, claves `<caso>/<subtarea>/...`) las salidas de cada sub-tarea a `resultados/<caso>/<operacion>/<subtarea>/` y escribe `reporte.json` y `reporte.md`. También se pueden ver en la consola de MinIO (`http://<A-IP>:9001`).
 
 ## Verificación de distribución real
 
@@ -504,8 +563,10 @@ Para demostrar que las subtareas se procesan distribuidas:
 
 **Checklist:**
 
-1. ≥3 valores distintos en `host` (campo en `worker:{id}`):
+1. ≥3 valores distintos en `host`:
    ```bash
+   curl -s http://192.168.1.50:8000/workers | python -c "import sys,json; print([w.get('host') for w in json.load(sys.stdin)])"
+   # o con Redis:
    redis-cli -h 192.168.1.50 -a pass SMEMBERS workers:registry | \
      xargs -I {} redis-cli -h 192.168.1.50 -a pass HGET worker:{} host
    ```
@@ -514,7 +575,7 @@ Para demostrar que las subtareas se procesan distribuidas:
 2. Subtareas del mismo caso procesadas por workers diferentes:
    - Crear caso con 5+ subtareas
    - Ver logs de cada worker: `docker compose -f deploy/docker-compose.worker.yml logs | grep "subtarea"`
-   - Verificar en Redis que `subtask:*` tiene distintos `worker_id`
+   - Verificar en `GET /cases/<case_id>/report` (o en `GET /cases/<case_id>`) que las sub-tareas tienen distintos `host` / `worker_id`
 
 3. Resultados en MinIO: `results/<case_id>/<subtask_id>/*`
    ```bash
@@ -523,8 +584,8 @@ Para demostrar que las subtareas se procesan distribuidas:
    ```
 
 4. Variación de `processing_s` y `encoder`:
-   - En `/subtasks/report`, cada payload incluye `processing_s`, `encoder` (ej. `libx264`, `libmp3lame`)
-   - Máquina C (especializada) debería tener tiempos más rápidos para video
+   - En `GET /cases/<case_id>/report`, cada sub-tarea incluye `host`, `processing_s` y `encoder` (ej. `libx264`, `h264_nvenc`, `libmp3lame`), y el reporte trae `avg_processing_s_by_host`
+   - El nodo con GPU debería mostrar `h264_nvenc` y tiempos menores para `transcode_video`; si NVENC no está disponible cae a `libx264`
 
 ## Solución de problemas
 
@@ -534,10 +595,24 @@ Para demostrar que las subtareas se procesan distribuidas:
 | Coordinador no responde (502) | Firewall bloquea 8000; coordinador no levantó como nativo | Verificar uvicorn en máquina A; firewall de Windows/Linux |
 | MinIO FAIL | MINIO_ENDPOINT incorrecto o credenciales erróneas | Acceder a `http://A:9001`; verificar `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` |
 | Worker muestra contenedor ID como `host` | `NODE_NAME` no configurada | Agregar `NODE_NAME=machine-x` a `.env` |
-| Subtareas quedan en `assigned` indefinidamente | Worker murió; reaper tardará `REAPER_INTERVAL + HEARTBEAT_TTL` en detectar | Reaper requeará después de 15 s (TTL) + 10 s (intervalo) |
+| `POST /cases` responde 422 | Operación inválida, caso sin sub-tareas o `priority` distinta de `normal`/`high` | Revisar el cuerpo; el detalle de la respuesta indica el valor inválido |
+| Sub-tareas `failed` con `StorageError` | La clave `file_path` no existe en el bucket `dataset` | Subir el archivo (`seed_minio`, `submit_case` o `run_load --upload`) y usar la clave sin el nombre del bucket |
+| Subtareas quedan en `assigned` o `running` mucho tiempo | Worker murió; el reaper tarda hasta `HEARTBEAT_TTL + REAPER_INTERVAL` (≈ 25 s) en detectarlo | Esperar: el reaper reencola la sub-tarea y el caso pasa a `retrying`. Si nunca ocurre, verificar que el contenedor `reaper` esté corriendo en la máquina A |
 | `reports:pending` crece sin parar | Coordinador caído o no responde en `/subtasks/report` | Iniciar coordinador; revisar logs; verificar `COORDINATOR_URL` |
 | `pull access denied for minio/minio` | La imagen oficial ya no es pública | Usar el compose actual (Chainguard) o `MINIO_IMAGE=...` en `.env` |
-| FFmpeg timeout en subtareas largas | `FFMPEG_TIMEOUT` muy bajo (default 600 s) | Aumentar en `.env`: `FFMPEG_TIMEOUT=1800` |
+| FFmpeg timeout en subtareas largas | Si `FFMPEG_TIMEOUT` está vacío el límite es proporcional a la duración del medio (tope 1800 s; 600 s si no se conoce); si se fijó un valor bajo, rige ese | Vaciar `FFMPEG_TIMEOUT` o subirlo en `.env` (p. ej. `FFMPEG_TIMEOUT=1800`) |
+
+## Pruebas de tolerancia a fallos (caos)
+
+Con el sistema procesando una carga (p. ej. `run_load` o el demo), se pueden reproducir estas fallas y observar la recuperación con `GET /stats`, `GET /workers` y `GET /cases?status=retrying`. Ver la justificación en `docs/DECISIONES_DISENO.md`, decisión 8.
+
+| Falla | Cómo provocarla | Qué debe ocurrir |
+|-------|-----------------|------------------|
+| Worker muere a mitad de una sub-tarea | Matar el contenedor o el proceso del worker mientras transcodifica (`docker kill <contenedor>`) | El heartbeat expira (15 s), el reaper reencola la sub-tarea en el siguiente ciclo (≈ 25 s en total), el caso pasa a `retrying` con `retries` + 1 y otro worker la termina |
+| Worker se reinicia con el mismo `WORKER_ID` | Reiniciar el proceso o contenedor con `WORKER_ID` fijo | Al arrancar, `recover_own_inflight()` reencola sus sub-tareas propias sin esperar al reaper (segundos) |
+| Coordinador caído | Detener uvicorn unos 30-60 s y volver a levantarlo | Los workers siguen procesando; sus reportes fallan, se reintentan (1, 2, 4, 8, 16 s) y quedan en `reports:pending`; al volver el coordinador se entregan (flusher cada 15 s) y no se pierde ni duplica ningún resultado |
+| Redis se reinicia | `docker compose restart redis` | Redis recarga su AOF (`--appendonly yes`); los workers reintentan la conexión con espera exponencial (1 a 30 s) y retoman las colas |
+| Sub-tarea que agota `MAX_ATTEMPTS` | Matar repetidamente a los workers que la toman | El reaper reporta `failed` con `error_type=WorkerLostError` |
 
 ## Pruebas automatizadas
 
@@ -586,8 +661,15 @@ docker compose -f deploy/docker-compose.worker.yml up -d --scale worker=3
 **Monitoreo (cualquier máquina):**
 
 ```bash
-# Enviar casos
-python -m scripts.submit_case --dir <dir> --mode mixed
+# Enviar casos (con prioridad alta y cancelación opcional)
+python -m scripts.submit_case --dir <dir> --mode mixed [--priority high] [--cancel-after 5]
+
+# Colas, casos por estado y workers vivos
+curl http://<A-IP>:8000/stats
+curl http://<A-IP>:8000/workers
+
+# Bajar resultados de un caso
+python -m scripts.fetch_results <case_id> --out resultados
 
 # Ver workers vivos
 redis-cli -h <A-IP> -a <pass> SMEMBERS workers:registry

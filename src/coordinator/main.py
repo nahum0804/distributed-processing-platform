@@ -1,32 +1,40 @@
 """
 Coordinator service — Plataforma Distribuida de Procesamiento Multimedia
 ========================================================================
-Persona 1 · Coordinador y Orquestador  (v3.0)
+Persona 1 · Coordinador y Orquestador  (v4.0)
 
-Cambios v3 (revisión Kenny Rodríguez 27/09/2026)
--------------------------------------------------
-BLOQUEANTES resueltos
-  1. Idempotencia atómica con SADD en case:{id}:done  — evita doble conteo
-     cuando el worker reintenta por pérdida de respuesta HTTP.
-  2. Validación 422 de operation en POST /cases via router.resolve_task_type().
-     Tipos inválidos → error inmediato; "auto"/None → detección por extensión.
-  3. Lista case:{id}:subtasks guardada con RPUSH al crear cada sub-tarea.
-  4. Creación atómica con pipeline(transaction=True): si falla a mitad no
-     quedan casos huérfanos en estado "processing" con 0 sub-tareas.
+Responsabilidades
+-----------------
+* Recibir casos (POST /cases), validar/resolver la operación de cada sub-tarea
+  (router.py; "auto" → por extensión) y encolarlas en Redis de forma atómica,
+  en queue:{op} o queue:{op}:high según la prioridad del caso.
+* Barrier/Join: POST /subtasks/report es idempotente (SADD en case:{id}:done)
+  y cierra el caso cuando pending_subtasks llega a 0.
+* Consultas para dashboard/clientes: GET /cases[?status=], /cases/{id},
+  /cases/{id}/report, /subtasks/{id}, /workers, /stats.
 
-RÚBRICA cumplida
-  5. Routing por tipo en router.py (classify + resolve_task_type).
-  6. GET /cases/{id}/report — reporte consolidado agrupado por operación.
-  7. Todos los campos del worker almacenados: error_type, outputs (json.dumps),
-     host, started_at, finished_at, processing_s, media_duration_s,
-     output_bytes, attempts. None → "".
-  8. params opcional por sub-tarea, guardado como JSON string.
+Novedades v4 (sobre v3)
+-----------------------
+  1. priority ("normal" | "high") por caso → colas queue:{op}:high, que los
+     workers consumen antes que las normales.
+  2. metadata libre por caso y por sub-tarea (se guarda como JSON string).
+  3. Estados de caso: queued → processing → retrying → completed |
+     partially_completed | failed | cancelled. El coordinador crea "queued" y
+     fija los terminales; el worker pasa a "processing" al tomar la primera
+     sub-tarea; el reaper marca "retrying" y suma case.retries al reencolar.
+  4. POST /cases/{id}/cancel (409 si el caso ya es terminal; un caso cancelado
+     nunca cambia de estado).
+  5. GET /subtasks/{id}, GET /workers (heartbeats, campo alive), GET /stats
+     (colas, casos por estado, workers vivos) y GET /cases?status=.
+  6. El reporte añade priority, metadata, retries, subtasks_by_type y
+     totals_by_type_and_operation.
 
 Contratos respetados
 --------------------
-* Persona 2 (Infra/Workers): cola alimentada con JSON payload completo.
-* Dev 3 (FFmpeg): hash subtask:{id} expone 'operation', 'file_path', 'params'.
+* Workers (src/workers): payload JSON completo en la cola; hash subtask:{id}
+  con 'operation', 'file_path', 'params', 'priority'.
 * Reporter (worker_node.py): SubtaskReport acepta todos los campos del worker.
+* Detalle de claves y estados: docs/WORKER_CONTRACT.md.
 """
 
 from __future__ import annotations

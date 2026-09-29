@@ -16,14 +16,14 @@ sequenceDiagram
     participant MinIO
     participant Processor
 
-    Coordinator->>Redis: RPUSH queue:{operation} subtask_id
-    Note over Redis: Cola ordenada por operación
+    Coordinator->>Redis: RPUSH queue:{operation} JSON_payload
+    Note over Redis: Cola con payload completo: {subtask_id, case_id, task_type, file_path, params}
     
     Worker->>Redis: BLPOP queue:{operation}
-    Redis-->>Worker: subtask_id
+    Redis-->>Worker: JSON payload o subtask_id (reaper)
     
     Worker->>Redis: HGETALL subtask:{subtask_id}
-    Redis-->>Worker: file_path, case_id, operation, params
+    Redis-->>Worker: file_path, case_id, operation, params, task_type
     
     Worker->>MinIO: GET dataset/{file_path}
     MinIO-->>Worker: archivo
@@ -44,9 +44,9 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> queued: Coordinator RPUSH
+    [*] --> pending: Coordinator RPUSH
     
-    queued --> assigned: Worker HSET (asigna worker_id, assigned_at, assigned_ts)
+    pending --> assigned: Worker HSET (asigna worker_id, assigned_at, assigned_ts)
     
     assigned --> running: Worker descarga y comienza procesamiento (HSET status=running, started_at)
     
@@ -56,8 +56,8 @@ stateDiagram-v2
     completed --> [*]: Terminal (escrito por coordinador)
     failed --> [*]: Terminal (escrito por coordinador)
     
-    assigned --> queued: Reaper reencoloja (si heartbeat expiró o max_age superado, y attempts < MAX_ATTEMPTS)
-    running --> queued: Reaper reencoloja (si heartbeat expiró o max_age superado, y attempts < MAX_ATTEMPTS)
+    assigned --> pending: Reaper reencoloja (si heartbeat expiró o max_age superado, y attempts < MAX_ATTEMPTS)
+    running --> pending: Reaper reencoloja (si heartbeat expiró o max_age superado, y attempts < MAX_ATTEMPTS)
     
     assigned --> failed: Reaper marca como fallida (si attempts >= MAX_ATTEMPTS)
     running --> failed: Reaper marca como fallida (si attempts >= MAX_ATTEMPTS)
@@ -83,7 +83,7 @@ Ver `docs/OPERATIONS.md` para detalles de cada operación.
 
 Una subtarea transita por estos estados:
 
-- **queued**: inicial; repe por el reaper si el worker muere
+- **pending**: inicial; reencolado por el reaper si el worker muere o si tarda más de `MAX_AGE`
 - **assigned**: worker adquiere la tarea; escribe `status`, `worker_id`, `assigned_at`, `assigned_ts`, incrementa `attempts`
 - **running**: comienza descarga y procesamiento; escribe `status`, `started_at`, `progress`
 - **completed**: procesamiento exitoso; escrito por el coordinador tras recibir el reporte
@@ -92,7 +92,7 @@ Una subtarea transita por estos estados:
 **Quién escribe qué:**
 - **Worker**: `assigned`, `running`, `progress` (durante procesamiento); intenta reportar al coordinador
 - **Coordinador**: `completed`, `failed` (terminal; irreversible)
-- **Reaper**: reencoloja a `queued` si el worker murió antes de alcanzar `MAX_ATTEMPTS`
+- **Reaper**: reencoloja a `pending` si el worker murió antes de alcanzar `MAX_ATTEMPTS`
 
 ## Claves de Redis
 
@@ -105,14 +105,23 @@ Metadatos y estado de una subtarea. El worker y reaper escriben; el coordinador 
 | `case_id` | Coordinador | str | `"550e8400-e29b-41d4-a716-446655440000"` | UUID del caso padre |
 | `subtask_id` | Coordinador | str | `"a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"` | UUID único |
 | `file_path` | Coordinador | str | `"dataset/video1.mp4"` | Clave en bucket `dataset` de MinIO |
-| `operation` | Coordinador | str | `"transcode_video"` | Una de las 5 operaciones |
+| `operation` | Coordinador | str | `"transcode_video"` | Una de las 5 operaciones (campo legacy, ver `task_type`) |
+| `task_type` | Coordinador | str | `"transcode_video"` | Una de las 5 operaciones (nuevo, reemplaza `operation`) |
 | `params` | Coordinador | str | `'{"height":"720"}'` | JSON opcional para parámetros de procesamiento |
-| `status` | Worker/Reaper/Coordinador | str | `"queued"`, `"assigned"`, `"running"`, `"completed"`, `"failed"` | Estado actual |
+| `status` | Worker/Reaper/Coordinador | str | `"pending"`, `"assigned"`, `"running"`, `"completed"`, `"failed"` | Estado actual |
 | `worker_id` | Worker | str | `"worker-gpu-node-01"` | Asignado cuando worker adquiere; vacío si reencolado |
 | `assigned_at` | Worker | str ISO | `"2025-02-14T10:30:45.123456+00:00"` | Timestamp UTC cuando worker asume la tarea |
 | `assigned_ts` | Worker | float | `1739534445.123456` | `time.time()` para cálculo del reaper (`assigned_ts`) |
 | `started_at` | Worker | str ISO | `"2025-02-14T10:30:46.654321+00:00"` | Timestamp UTC inicio real del procesamiento |
+| `finished_at` | Coordinador | str ISO | `"2025-02-14T10:32:15.987654+00:00"` | Timestamp UTC cuando finaliza (después del reporte) |
 | `progress` | Worker | int | `0`, `50`, `100` | Porcentaje 0–100; actualizado cada ~1 segundo |
+| `processing_s` | Coordinador | float | `89.333` | Tiempo de procesamiento en segundos (3 decimales) |
+| `media_duration_s` | Coordinador | float | `120.5` | Duración del archivo multimedia en segundos |
+| `output_bytes` | Coordinador | int | `52428800` | Bytes totales de salida (0 si fallido) |
+| `outputs` | Coordinador | str | `'["results/...output.mp4"]'` | JSON array de rutas a MinIO de los outputs |
+| `error` | Coordinador | str | `"roto.mp4: moov atom not found"` | Mensaje de error (vacío si exitoso) |
+| `error_type` | Coordinador | str | `"CorruptInputError"` | Tipo de excepción (vacío si exitoso) |
+| `encoder` | Coordinador | str | `"libx264"`, `"h264_nvenc"`, `"libmp3lame"` | Codificador usado en FFmpeg |
 | `attempts` | Worker | int | `1`, `2`, `3` | Incrementado por `HINCRBY` en cada intento |
 | `requeued_at` | Reaper | str ISO | `"2025-02-14T10:31:50.000000+00:00"` | Timestamp UTC del reencolamiento |
 | `requeue_reason` | Reaper | str | `"worker_lost"`, `"max_age"` | Por qué el reaper reencoló |
@@ -139,10 +148,30 @@ Estado de vitalidad del worker. El heartbeat escribe cada `HEARTBEAT_INTERVAL` (
 | `failed_count` | int | `3` | Contador acumulado desde startup |
 | `ffmpeg_version` | str | `"ffmpeg version 5.1.2"` | Primera línea de `ffmpeg -version` o `"unavailable"` |
 | `gpu_encoders` | str | `"h264_nvenc,h264_qsv"` o `"none"` | Encoders de hardware **compilados** en el build de FFmpeg (`ffmpeg -encoders`). No garantiza que exista la GPU: el FFmpeg de Debian los trae aunque la máquina no tenga GPU. Para saber qué se usó realmente, ver `encoder` en el reporte de cada sub-tarea |
+| `gpu` | str | `"NVIDIA GeForce RTX 3080"`, `"none"`, `"unknown"` | GPU detectada (verificada con test de encoding real) o `"none"` si no hay, `"unknown"` si no se pudo detectar |
+| `nvenc_ok` | str | `"1"` o `"0"` | `"1"` si NVENC fue verificado exitosamente; `"0"` si no hay GPU o la verificación falló |
 | `started_at` | str ISO | `"2025-02-14T09:00:00.000000+00:00"` | Timestamp UTC del startup del worker |
 | `last_seen` | str ISO | `"2025-02-14T10:35:10.000000+00:00"` | Timestamp UTC del último heartbeat |
 
 **TTL:** `HEARTBEAT_TTL` segundos (15 por defecto). Cuando la clave expira, el reaper considera el worker muerto.
+
+### `cases:registry` — Set
+
+Registro de todos los `case_id` creados. El coordinador añade (`SADD`) al crear un caso.
+
+Miembros: `["550e8400-e29b-41d4-a716-446655440000", "a1234567-b89c-41d4-a716-446655440111", ...]`
+
+### `case:{case_id}:subtasks` — List
+
+Lista de subtask IDs pertenecientes al caso. El coordinador añade (`RPUSH`) al crear cada sub-tarea. Permite O(1) acceso sin SCAN.
+
+Miembros (orden): `["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "b1f9fcc00-9d0c-4fg9-cc7e-7cc0ce491b22", ...]`
+
+### `case:{case_id}:done` — Set
+
+Conjunto de `subtask_id` que ya reportaron (completado o fallido). El coordinador usa (`SADD`) para garantizar idempotencia: un reporte se procesa solo si el `SADD` retorna 1.
+
+Miembros: `["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "b1f9fcc00-9d0c-4fg9-cc7e-7cc0ce491b22", ...]`
 
 ### `workers:registry` — Set
 
@@ -257,7 +286,7 @@ Una subtarea se considera huérfana si:
 
 1. Leer `subtask:{subtask_id}` → obtener `attempts`, `operation`, `case_id`, `worker_id`
 2. Si `attempts < MAX_ATTEMPTS` (3 por defecto):
-   - Reencola: HSET `status = "queued"`, `worker_id = ""`, `progress = 0`, `requeued_at = ISO_NOW`, `requeue_reason = reason`
+   - Reencola: HSET `status = "pending"`, `worker_id = ""`, `progress = 0`, `requeued_at = ISO_NOW`, `requeue_reason = reason`
    - `LPUSH queue:{operation} subtask_id` (al frente, prioridad)
    - Log: "subtarea ... reencolada tras N intentos (reason)"
 3. Si `attempts >= MAX_ATTEMPTS`:
@@ -325,13 +354,24 @@ pending_count = r.llen('reports:pending')
 print(f"Reportes pendientes de envío: {pending_count}")
 ```
 
-## Requisitos para el coordinador
+## Requisitos para el coordinador — v3.0
 
-El coordinador debe:
+### Completados
 
-1. **Ser idempotente:** ignorar un reporte si el `subtask_id` ya está terminal (completado o fallido)
-2. **Leer configuración desde env:** ya hecho (PR #3): lee `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`; se ejecuta con `uvicorn ... --env-file .env`
-3. **Guardar campos de reporte:** almacenar `error_type`, `outputs`, `host`, `started_at`, `finished_at`, `processing_s`, `media_duration_s`, `output_bytes`, `encoder`, `attempts` (hoy solo guarda `status`, `result_path`, `error` y `worker_id`); el reporte consolidado por caso los necesita
-4. **Aceptar parámetros opcionales:** en `POST /cases/`, aceptar `params` JSON opcional por archivo (`{"height": 720, "preset": "fast"}`)
-5. **Manejo de path y parámetros:** aceptar `file_path` como clave MinIO; soportar `params` opcional en la request
-6. **Crear el caso de forma atómica:** hoy `POST /cases/` escribe `case:{id}` antes de las sub-tareas; si falla a mitad, queda un caso huérfano en `queued` con 0 sub-tareas. Conviene usar un pipeline de Redis (MULTI/EXEC) o escribir el caso al final
+1. **Idempotencia atómica:** SADD en `case:{id}:done` → solo el primer reporte decrementa `pending_subtasks`
+2. **Validación 422:** task_type inválido retorna 422 inmediatamente; "auto" y None disparan detección por extensión
+3. **Lista de subtareas por caso:** `RPUSH case:{id}:subtasks <sid>` al crear → O(1) sin SCAN
+4. **Creación atómica:** pipeline(transaction=True) → todo o nada; no hay casos huérfanos
+5. **Routing automático:** `router.resolve_task_type()` detecta por extensión (video → transcode_video, audio → convert_audio, otro → extract_metadata)
+6. **Reporte consolidado:** `GET /cases/{id}/report` agrupa por operación, calcula promedios, desglosa errores
+7. **Almacenamiento de campos:** error_type, outputs (JSON array), host, started_at, finished_at, processing_s, media_duration_s, output_bytes, encoder, attempts
+8. **Aceptación de parámetros:** `POST /cases` con `params: {...}` opcional por subtarea (almacenados como JSON string en `subtask:{id}:params`)
+
+### Pendientes
+
+- Prioridades por caso (planificación de colas)
+- Estados de caso `retrying` y `cancelled` (control de ciclo de vida completo)
+
+## Herramientas de testing y generación de datos
+
+**`scripts/generate_dataset.py`:** generador de casos sintéticos (100–500 casos con 2–8 sub-tareas cada uno, parámetros realistas). Útil para **stress-testing** del coordinador y distribución. **Nota importante:** los archivos generados (`dataset/case_XXXX/...`) no existen en MinIO real y los params no coinciden con `docs/OPERATIONS.md`, así que es solo para validar carga del coordinador, no para procesar medios reales. Para media real, usar `scripts/seed_minio` + `scripts/submit_case`.

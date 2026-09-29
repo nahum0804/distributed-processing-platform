@@ -440,13 +440,16 @@ python -m scripts.submit_case \
 - `--dir`: requerido; carpeta con archivos multimedia
 - `--prefix`: opcional; prefijo MinIO (default: nombre de carpeta)
 - `--mode`:
-  - `auto`: video → transcode_video, audio → convert_audio
-  - `mixed`: cicla por operaciones (video: transcode → extract_audio → generate_thumbnail → metadata; audio: convert → metadata)
+  - `auto`: envía `task_type: "auto"` al coordinador; el coordinador detecta por extensión (video → transcode_video, audio → convert_audio)
+  - `mixed`: cicla por operaciones en el cliente (video: transcode → extract_audio → generate_thumbnail → metadata; audio: convert → metadata)
   - `<operacion>`: una de las 5 operaciones explícitamente
 - `--no-upload`: saltarse upload a MinIO (debug)
 - `--repeat N`: crear N casos en paralelo
 - `--timeout S`: segundos máximo para esperar (default 600)
 - `--poll T`: intervalo de polling (default 2 s)
+
+**Comportamiento v3:**
+- Al finalizar, `submit_case` imprime el reporte consolidado si el caso está completado (resumen, totales, desgloses de fallo, promedios de procesamiento por operación y host)
 
 **Ejemplo:**
 

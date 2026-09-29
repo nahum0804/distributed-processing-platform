@@ -76,6 +76,111 @@ python -m src.workers.worker_node
 
 La configuración se lee desde `.env` (variables: `REDIS_HOST`, `COORDINATOR_URL`, `MINIO_ENDPOINT`, `NODE_NAME`, `WORKER_QUEUES`, `WORKER_CONCURRENCY`). No se requieren cambios de código.
 
+## API v3 — Ejemplos de uso
+
+### Crear un caso — POST /cases
+
+```bash
+curl -X POST http://localhost:8000/cases \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subtasks": [
+      {
+        "task_type": "auto",
+        "file_path": "dataset/video1.mp4"
+      },
+      {
+        "task_type": "extract_audio",
+        "file_path": "dataset/video1.mp4",
+        "params": {"format": "mp3", "bitrate": "192k"}
+      }
+    ]
+  }'
+```
+
+Respuesta (201):
+```json
+{
+  "case_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "processing",
+  "total_subtasks": 2,
+  "subtask_ids": ["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "b1f9fcc00-9d0c-4fg9-cc7e-7cc0ce491b22"],
+  "created_at": "2025-02-14T10:30:45.123456+00:00"
+}
+```
+
+### Obtener reporte consolidado — GET /cases/{case_id}/report
+
+```bash
+curl -X GET http://localhost:8000/cases/550e8400-e29b-41d4-a716-446655440000/report
+```
+
+Respuesta (200):
+```json
+{
+  "case_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "created_at": "2025-02-14T10:30:45.123456+00:00",
+  "finished_at": "2025-02-14T10:32:20.987654+00:00",
+  "summary": "2 ok; prom(s) por op: transcode_video=45.5, extract_audio=15.3",
+  "totals": {
+    "total": 2,
+    "completed": 2,
+    "failed": 0,
+    "pending": 0
+  },
+  "failure_breakdown": {},
+  "avg_processing_s_by_operation": {
+    "transcode_video": 45.5,
+    "extract_audio": 15.3
+  },
+  "avg_processing_s_by_host": {
+    "machine-b": 30.4,
+    "machine-c": 30.4
+  },
+  "subtasks_by_operation": {
+    "transcode_video": [
+      {
+        "subtask_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "file_path": "dataset/video1.mp4",
+        "status": "completed",
+        "worker_id": "worker-machine-c",
+        "host": "machine-c",
+        "started_at": "2025-02-14T10:30:46.654321+00:00",
+        "finished_at": "2025-02-14T10:32:15.987654+00:00",
+        "processing_s": 45.333,
+        "media_duration_s": 120.5,
+        "output_bytes": 52428800,
+        "outputs": ["results/550e8400-e29b-41d4-a716-446655440000/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/output.mp4"],
+        "error": null,
+        "error_type": null,
+        "encoder": "libx264",
+        "attempts": 1
+      }
+    ],
+    "extract_audio": [
+      {
+        "subtask_id": "b1f9fcc00-9d0c-4fg9-cc7e-7cc0ce491b22",
+        "file_path": "dataset/video1.mp4",
+        "status": "completed",
+        "worker_id": "worker-machine-b",
+        "host": "machine-b",
+        "started_at": "2025-02-14T10:31:10.123456+00:00",
+        "finished_at": "2025-02-14T10:31:25.456789+00:00",
+        "processing_s": 15.333,
+        "media_duration_s": 120.5,
+        "output_bytes": 1048576,
+        "outputs": ["results/550e8400-e29b-41d4-a716-446655440000/b1f9fcc00-9d0c-4fg9-cc7e-7cc0ce491b22/audio.mp3"],
+        "error": null,
+        "error_type": null,
+        "encoder": "libmp3lame",
+        "attempts": 1
+      }
+    ]
+  }
+}
+```
+
 **Documentación completa:**
 
 - `docs/DEPLOY_WORKERS.md` — Guía de despliegue paso a paso (Docker, nativo, firewall, Tailscale)

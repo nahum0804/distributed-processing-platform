@@ -333,3 +333,237 @@ def test_tres_llamadas_en_paralelo(media, tmp_path):
     for (result, hilo_llamador, hilos_callback), (_, _, nombre) in zip(resultados, trabajos):
         _check_result(result, tmp_path / nombre)
         assert hilos_callback and all(h == hilo_llamador for h in hilos_callback)
+
+
+# ---------- P2-a: NVENC con respaldo a CPU ----------
+HAS_NVENC = HAS_FFMPEG and mp.detect_hw_encoders()["nvenc"]
+requires_nvenc = pytest.mark.skipif(not HAS_NVENC, reason="sin NVENC")
+
+
+@requires_nvenc
+def test_nvenc_transcode(media, tmp_path):
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    out = _check_result(result, tmp_path)
+    assert result.encoder == "h264_nvenc"
+    info = mp.probe(str(out))
+    assert _stream(info, "video")["codec_name"] == "h264"
+    assert abs(float(info["format"]["duration"]) - 3.0) <= 0.5
+
+
+@requires_nvenc
+def test_nvenc_height_120(media, tmp_path):
+    result = mp.process(
+        "transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc", "height": 120}
+    )
+    assert result.encoder == "h264_nvenc"
+    assert _stream(mp.probe(result.outputs[0]), "video")["height"] == 120
+
+
+def test_respaldo_a_cpu_si_nvenc_falla(media, tmp_path, monkeypatch, caplog):
+    # Simula una GPU "detectada" cuyo encoder falla: el nombre no existe en FFmpeg,
+    # así que FFmpeg termina con error y el stderr menciona "nvenc". Corre en cualquier máquina.
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": True, "gpu_name": "GPU falsa"})
+    monkeypatch.setattr(mp, "_NVENC_ENCODER", "h264_nvenc_inexistente")
+    with caplog.at_level("WARNING", logger=mp.__name__):
+        result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    out = _check_result(result, tmp_path)
+    assert result.encoder == "libx264"
+    assert _stream(mp.probe(str(out)), "video")["codec_name"] == "h264"
+    assert "se reintenta con libx264" in caplog.text
+
+
+def test_respaldo_a_cpu_si_no_hay_nvenc(media, tmp_path, monkeypatch):
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": False, "gpu_name": None})
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    assert result.encoder == "libx264"
+
+
+def test_timeout_con_nvenc_no_dispara_respaldo(media, tmp_path, monkeypatch):
+    llamadas = []
+
+    def run_que_expira(cmd, timeout, name, *args, **kwargs):
+        llamadas.append(cmd)
+        raise mp.ProcessingTimeoutError(f"{name}: FFmpeg superó el tiempo límite")
+
+    monkeypatch.setattr(mp, "detect_hw_encoders", lambda: {"nvenc": True, "gpu_name": None})
+    monkeypatch.setattr(mp, "_run", run_que_expira)
+    with pytest.raises(mp.ProcessingTimeoutError):
+        mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "nvenc"})
+    assert len(llamadas) == 1 and "h264_nvenc" in llamadas[0]
+
+
+def test_hwaccel_desconocido_usa_cpu(media, tmp_path, monkeypatch):
+    def no_llamar():
+        raise AssertionError("no debería detectar GPU con un hwaccel desconocido")
+
+    monkeypatch.setattr(mp, "detect_hw_encoders", no_llamar)
+    result = mp.process("transcode_video", str(media["video"]), str(tmp_path), params={"hwaccel": "vulkan"})
+    assert result.encoder == "libx264"
+
+
+def test_comando_nvenc():
+    cmd = mp._build_command("transcode_video", "in.mp4", "out.mp4", {"crf": 20}, 2, INFO_AV, "h264_nvenc")
+    assert cmd[cmd.index("-c:v") + 1] == "h264_nvenc"
+    assert cmd[cmd.index("-preset") + 1] == "p4"  # sin preset explícito
+    assert cmd[cmd.index("-cq") + 1] == "20"
+    assert cmd[cmd.index("-rc") + 1] == "vbr" and cmd[cmd.index("-b:v") + 1] == "0"
+    # -threads va antes de -i (decodificación) junto con -filter_threads.
+    assert cmd.index("-threads") < cmd.index("-i")
+    assert cmd[cmd.index("-filter_threads") + 1] == "2"
+    assert "libx264" not in cmd
+
+
+@pytest.mark.parametrize(
+    "preset, esperado",
+    [("ultrafast", "p1"), ("veryfast", "p2"), ("fast", "p3"), ("medium", "p4"),
+     ("slow", "p5"), ("slower", "p6"), ("veryslow", "p7"), ("invalido", "p4")],
+)
+def test_presets_nvenc(preset, esperado):
+    cmd = mp._build_command("transcode_video", "in.mp4", "out.mp4", {"preset": preset}, None, INFO_AV, "h264_nvenc")
+    assert cmd[cmd.index("-preset") + 1] == esperado
+
+
+def test_detect_hw_encoders_y_cache(monkeypatch):
+    if not HAS_FFMPEG:
+        pytest.skip("FFmpeg/ffprobe no están instalados o no están en el PATH")
+    llamadas_ffmpeg = []
+    real_run = subprocess.run
+
+    def run_espia(cmd, *args, **kwargs):
+        if cmd[0] == "ffmpeg":
+            llamadas_ffmpeg.append(cmd)
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(mp, "_hw_cache", None)  # empezar sin caché
+    monkeypatch.setattr(subprocess, "run", run_espia)
+    primero = mp.detect_hw_encoders()
+    segundo = mp.detect_hw_encoders()
+    assert isinstance(primero["nvenc"], bool) and "gpu_name" in primero
+    assert primero == segundo
+    assert len(llamadas_ffmpeg) == 1, "la segunda llamada debe usar la caché"
+
+
+def test_detect_hw_encoders_nunca_lanza(monkeypatch):
+    def run_roto(*args, **kwargs):
+        raise OSError("fallo simulado")
+
+    monkeypatch.setattr(mp, "_hw_cache", None)
+    monkeypatch.setattr(subprocess, "run", run_roto)
+    assert mp.detect_hw_encoders() == {"nvenc": False, "gpu_name": None}
+
+
+# ---------- P2-c: progreso real ----------
+class RelojFalso:
+    """Reloj controlado por la prueba, para no depender del tiempo real."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def test_tracker_limita_a_una_vez_por_segundo_y_no_decrece():
+    valores = []
+    reloj = RelojFalso()
+    tracker = mp._ProgressTracker(valores.append, duration=10.0, clock=reloj)
+
+    reloj.t = 0.5
+    tracker.feed("out_time_us=2000000\n")   # < 1 s desde el inicio: se descarta
+    reloj.t = 1.1
+    tracker.feed("out_time_us=3000000\n")   # 30 %
+    reloj.t = 1.5
+    tracker.feed("out_time_us=4000000\n")   # < 1 s desde el anterior: se descarta
+    reloj.t = 2.2
+    tracker.feed("out_time_us=N/A\n")       # valor no numérico: se ignora
+    tracker.feed("speed=2.0x\n")            # otra clave: se ignora
+    tracker.feed("out_time_us=1000000\n")   # retrocede: se descarta
+    reloj.t = 3.3
+    tracker.feed("out_time_us=50000000\n")  # supera la duración: se limita a 99.9
+
+    assert valores == [30.0, 99.9]
+
+
+def test_tracker_sin_duracion_no_reporta():
+    valores = []
+    reloj = RelojFalso()
+    tracker = mp._ProgressTracker(valores.append, duration=None, clock=reloj)
+    reloj.t = 5
+    tracker.feed("out_time_us=1000000\n")
+    assert valores == []
+
+
+def test_progreso_real_en_transcode(media, tmp_path):
+    import time
+
+    eventos = []  # (instante, valor)
+    result = mp.process(
+        "transcode_video", str(media["largo"]), str(tmp_path),
+        params={"preset": "medium"}, threads=2,
+        on_progress=lambda p: eventos.append((time.monotonic(), p)),
+    )
+    valores = [v for _, v in eventos]
+    assert valores[0] == 0.0 and valores[-1] == 100.0
+    assert all(0.0 <= v <= 100.0 for v in valores)
+    assert valores == sorted(valores), "el progreso nunca debe retroceder"
+    intermedios = eventos[1:-1]
+    # Entre dos reportes intermedios pasa al menos ~1 s.
+    for (t1, _), (t2, _) in zip(intermedios, intermedios[1:]):
+        assert t2 - t1 >= 0.9
+    if result.duration_s > 2.5:
+        assert intermedios, "una transcodificación larga debe reportar progreso intermedio"
+
+
+def test_miniatura_solo_reporta_0_y_100(media, tmp_path):
+    valores = []
+    mp.process("generate_thumbnail", str(media["largo"]), str(tmp_path), on_progress=valores.append)
+    assert valores == [0.0, 100.0]
+
+
+def test_ffmpeg_recibe_progress_pipe(media, tmp_path, monkeypatch):
+    comandos = []
+    real_popen = subprocess.Popen
+
+    def popen_espia(cmd, *args, **kwargs):
+        comandos.append(cmd)
+        return real_popen(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", popen_espia)
+    mp.process("convert_audio", str(media["wav"]), str(tmp_path))
+    ffmpeg_cmd = next(c for c in comandos if c[0] == "ffmpeg")
+    assert ffmpeg_cmd[1:4] == ["-progress", "pipe:1", "-nostats"]
+
+
+# ---------- P2-d: timeouts proporcionales ----------
+@pytest.mark.parametrize(
+    "operation, duration, encoder, requested, esperado",
+    [
+        ("transcode_video", 100.0, "libx264", None, 300.0),     # 100 × 3
+        ("transcode_video", 100.0, "h264_nvenc", None, 150.0),  # 100 × 1.5 con NVENC
+        ("transcode_video", 5.0, "libx264", None, 60.0),        # mínimo 60
+        ("transcode_video", 3600.0, "libx264", None, 1800.0),   # tope global
+        ("extract_audio", 100.0, "libmp3lame", None, 100.0),    # 100 × 1
+        ("convert_audio", 5.0, "libmp3lame", None, 30.0),       # mínimo 30
+        ("generate_thumbnail", 3600.0, "mjpeg", None, 30.0),    # fijo
+        ("extract_metadata", None, None, None, 30.0),           # fijo
+        ("transcode_video", None, "libx264", None, 600.0),      # duración desconocida
+        ("transcode_video", 100.0, "libx264", 7.5, 7.5),        # explícito: se respeta
+    ],
+)
+def test_timeout_proporcional(operation, duration, encoder, requested, esperado):
+    assert mp._timeout_for(operation, duration, encoder, requested) == pytest.approx(esperado)
+
+
+def test_process_usa_timeout_proporcional(media, tmp_path, monkeypatch):
+    timeouts = []
+    real_run = mp._run
+
+    def run_espia(cmd, timeout, *args, **kwargs):
+        timeouts.append(timeout)
+        return real_run(cmd, timeout, *args, **kwargs)
+
+    monkeypatch.setattr(mp, "_run", run_espia)
+    mp.process("transcode_video", str(media["video"]), str(tmp_path / "a"))              # 3 s → mínimo 60
+    mp.process("extract_audio", str(media["video"]), str(tmp_path / "b"))                # 3 s → mínimo 30
+    mp.process("transcode_video", str(media["video"]), str(tmp_path / "c"), timeout=45)  # explícito
+    assert timeouts == [60.0, 30.0, 45]

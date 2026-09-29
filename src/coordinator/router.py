@@ -111,6 +111,8 @@ def resolve_task_type(task_type: str | None, file_path: str) -> str:
     return normalized
 
 
-def queue_key(task_type: str) -> str:
-    """Return the exact Redis list key for a validated task type."""
+def queue_key(task_type: str, priority: str = "normal") -> str:
+    """Return the exact Redis list key for a validated task type and priority."""
+    if priority == "high":
+        return f"queue:{task_type}:high"
     return f"queue:{task_type}"

@@ -37,13 +37,13 @@ import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 import redis as redis_lib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from src.coordinator.router import queue_key, resolve_task_type
+from src.coordinator.router import VALID_TASK_TYPES, classify, queue_key, resolve_task_type
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -75,7 +75,7 @@ redis_client: redis_lib.Redis = redis_lib.Redis(
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="Nodo Coordinador — Plataforma Distribuida de Procesamiento Multimedia",
-    version="3.0.0",
+    version="4.0.0",
     description=(
         "Orquesta casos de procesamiento multimedia, encola sub-tareas en Redis "
         "y consolida resultados mediante el patrón Barrier/Join."
@@ -97,6 +97,7 @@ class SubtaskRequest(BaseModel):
     task_type: Optional[str] = "auto"   # "auto" → router elige por extensión
     file_path: str                       # MinIO object key
     params: Optional[dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 class CaseRequest(BaseModel):
@@ -104,6 +105,8 @@ class CaseRequest(BaseModel):
 
     case_id: Optional[str] = None       # auto-generated if not provided
     subtasks: List[SubtaskRequest]
+    priority: Literal["normal", "high"] = "normal"
+    metadata: Optional[dict[str, Any]] = None
 
 
 class SubtaskReport(BaseModel):
@@ -163,14 +166,16 @@ def create_case(case_req: CaseRequest) -> dict:
         raise HTTPException(status_code=422, detail="El caso debe tener al menos una sub-tarea.")
 
     # --- resolve + validate all task types before touching Redis ---
+    priority = case_req.priority
     resolved: list[tuple[SubtaskRequest, str, str]] = []  # (st, resolved_type, queue)
     for st in case_req.subtasks:
         op = resolve_task_type(st.task_type, st.file_path)  # raises 422 on invalid
-        resolved.append((st, op, queue_key(op)))
+        resolved.append((st, op, queue_key(op, priority)))
 
     case_id: str = case_req.case_id or str(uuid.uuid4())
     total: int = len(case_req.subtasks)
     created_at: str = _now_iso()
+    case_metadata_json = json.dumps(case_req.metadata or {})
     case_key = f"case:{case_id}"
     case_subtasks_key = f"case:{case_id}:subtasks"
     done_set_key = f"case:{case_id}:done"
@@ -179,18 +184,20 @@ def create_case(case_req: CaseRequest) -> dict:
     subtask_id_list: list[str] = []
 
     # Pre-generate IDs and payloads outside the pipeline
-    entries: list[tuple[str, str, str, dict, str]] = []
+    entries: list[tuple[str, str, str, SubtaskRequest, str, str, str]] = []
     for st, op, q in resolved:
         sid = str(uuid.uuid4())
         params_json = json.dumps(st.params or {})
+        metadata_json = json.dumps(st.metadata or {})
         queue_payload = json.dumps({
             "subtask_id": sid,
             "case_id": case_id,
             "task_type": op,
             "file_path": st.file_path,
             "params": st.params or {},
+            "priority": priority,
         })
-        entries.append((sid, op, q, st, params_json, queue_payload))  # type: ignore[arg-type]
+        entries.append((sid, op, q, st, params_json, metadata_json, queue_payload))  # type: ignore[arg-type]
         subtask_id_list.append(sid)
 
     # --- atomic transaction ---
@@ -199,17 +206,20 @@ def create_case(case_req: CaseRequest) -> dict:
     # Case metadata hash
     pipe.hset(case_key, mapping={
         "case_id": case_id,
-        "status": "processing",
+        "status": "queued",
         "total_subtasks": total,
         "pending_subtasks": total,
         "created_at": created_at,
+        "priority": priority,
+        "metadata": case_metadata_json,
+        "retries": "0",
     })
     # Register in global set
     pipe.sadd("cases:registry", case_id)
     # Pre-create done set as empty (ensures key exists for SADD checks)
     # We don't need to create it explicitly; SADD will create it on first use.
 
-    for sid, op, q, st, params_json, queue_payload in entries:  # type: ignore[assignment]
+    for sid, op, q, st, params_json, metadata_json, queue_payload in entries:
         # Subtask hash (fields read by the worker)
         pipe.hset(f"subtask:{sid}", mapping={
             "subtask_id": sid,
@@ -219,6 +229,8 @@ def create_case(case_req: CaseRequest) -> dict:
             "file_path": st.file_path,
             "status": "pending",
             "params": params_json,
+            "metadata": metadata_json,
+            "priority": priority,
         })
         # [FIX 3] Append subtask ID to per-case list (O(1) lookup, no SCAN needed)
         pipe.rpush(case_subtasks_key, sid)
@@ -235,7 +247,8 @@ def create_case(case_req: CaseRequest) -> dict:
 
     return {
         "case_id": case_id,
-        "status": "processing",
+        "status": "queued",
+        "priority": priority,
         "total_subtasks": total,
         "subtask_ids": subtask_ids,
         "created_at": created_at,
@@ -321,10 +334,9 @@ def report_subtask(report: SubtaskReport) -> dict:
     remaining = redis_client.hincrby(case_key, "pending_subtasks", -1)
     case_status = redis_client.hget(case_key, "status")
 
-    # --- Barrier / Join ---
-    if remaining <= 0:
-        had_failure = _case_had_failure_fast(case_id)
-        final_status = "partially_completed" if had_failure else "completed"
+    # --- Barrier / Join (un caso cancelado nunca cambia de estado) ---
+    if remaining <= 0 and case_status != "cancelled":
+        final_status = _final_case_status(case_id)
         redis_client.hset(case_key, mapping={
             "status": final_status,
             "finished_at": _now_iso(),
@@ -344,17 +356,91 @@ def report_subtask(report: SubtaskReport) -> dict:
     }
 
 
-def _case_had_failure_fast(case_id: str) -> bool:
+def _subtask_statuses(case_id: str) -> list[str | None]:
+    """Statuses of every subtask of a case using the per-case list (no SCAN)."""
+    subtask_ids = redis_client.lrange(f"case:{case_id}:subtasks", 0, -1)
+    pipe = redis_client.pipeline()
+    for sid in subtask_ids:
+        pipe.hget(f"subtask:{sid}", "status")
+    return pipe.execute()
+
+
+def _final_case_status(case_id: str) -> str:
     """
-    Check for failed subtasks using the per-case list (O(N subtasks), no SCAN).
-    Reads case:{id}:subtasks to get IDs, then checks each hash for status='failed'.
+    completed → sin fallidas; failed → todas fallidas;
+    partially_completed → al menos una fallida y al menos una completada.
     """
+    statuses = _subtask_statuses(case_id)
+    failed = sum(1 for s in statuses if s == "failed")
+    completed = sum(1 for s in statuses if s == "completed")
+    if failed == 0:
+        return "completed"
+    if completed == 0:
+        return "failed"
+    return "partially_completed"
+
+
+_TERMINAL_CASE_STATUSES = frozenset(
+    {"completed", "partially_completed", "failed", "cancelled"}
+)
+
+
+# ---------------------------------------------------------------------------
+# POST /cases/{case_id}/cancel
+# ---------------------------------------------------------------------------
+@app.post("/cases/{case_id}/cancel", status_code=200, response_model=dict, tags=["Cases"])
+def cancel_case(case_id: str) -> dict:
+    """
+    Cancel a case. Pending subtasks are marked ``cancelled`` and counted as done
+    (SADD + decrement of ``pending_subtasks``); assigned/running subtasks keep
+    running and workers skip cancelled subtasks still sitting in the queues.
+    """
+    case_key = f"case:{case_id}"
+    status = redis_client.hget(case_key, "status")
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Caso '{case_id}' no encontrado.")
+    if status in _TERMINAL_CASE_STATUSES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"El caso '{case_id}' ya está en estado terminal: '{status}'.",
+        )
+
+    now = _now_iso()
+    redis_client.hset(case_key, mapping={
+        "status": "cancelled",
+        "cancelled_at": now,
+        "finished_at": now,
+    })
+
+    done_set_key = f"case:{case_id}:done"
     subtask_ids = redis_client.lrange(f"case:{case_id}:subtasks", 0, -1)
     pipe = redis_client.pipeline()
     for sid in subtask_ids:
         pipe.hget(f"subtask:{sid}", "status")
     statuses = pipe.execute()
-    return any(s == "failed" for s in statuses)
+
+    cancelled = 0
+    running = 0
+    for sid, st_status in zip(subtask_ids, statuses):
+        if st_status == "pending":
+            if redis_client.sadd(done_set_key, sid):
+                redis_client.hset(f"subtask:{sid}", "status", "cancelled")
+                cancelled += 1
+        elif st_status not in ("completed", "failed", "cancelled", None):
+            running += 1
+    if cancelled:
+        redis_client.hincrby(case_key, "pending_subtasks", -cancelled)
+
+    logger.info(
+        "Caso %s cancelado | canceladas: %d | en ejecución: %d",
+        case_id, cancelled, running,
+    )
+    return {
+        "case_id": case_id,
+        "status": "cancelled",
+        "cancelled_subtasks": cancelled,
+        "running_subtasks": running,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -362,13 +448,13 @@ def _case_had_failure_fast(case_id: str) -> bool:
 # ---------------------------------------------------------------------------
 @app.get("/cases", response_model=list, tags=["Dashboard"])
 @app.get("/cases/", response_model=list, tags=["Dashboard"], include_in_schema=False)
-def list_cases() -> list:
-    """Return metadata for every registered case, newest first."""
+def list_cases(status: Optional[str] = None) -> list:
+    """Return metadata for every registered case, newest first (optional ?status= filter)."""
     case_ids: set[str] = redis_client.smembers("cases:registry")
     result = []
     for cid in case_ids:
         data = redis_client.hgetall(f"case:{cid}")
-        if data:
+        if data and (status is None or data.get("status") == status):
             result.append(data)
     result.sort(key=lambda c: c.get("created_at", ""), reverse=True)
     return result
@@ -423,6 +509,8 @@ def get_case_report(case_id: str) -> dict:
     failure_types: dict[str, int] = defaultdict(int)
     processing_by_op: dict[str, list[float]] = defaultdict(list)
     processing_by_host: dict[str, list[float]] = defaultdict(list)
+    by_type: dict[str, list[dict]] = defaultdict(list)
+    totals_by_type_op: dict[str, dict[str, dict[str, int]]] = {}
 
     for st in subtasks:
         op = st.get("task_type") or st.get("operation", "unknown")
@@ -443,8 +531,17 @@ def get_case_report(case_id: str) -> dict:
             "error_type": st.get("error_type") or None,
             "attempts": _int_or_none(st.get("attempts")),
             "encoder": st.get("encoder") or None,
+            "metadata": _json_dict(st.get("metadata")),
+            "priority": st.get("priority") or None,
         }
+        file_type = classify(st.get("file_path") or "")
+        entry["file_type"] = file_type
         by_operation[op].append(entry)
+        by_type[file_type].append(entry)
+        bucket = totals_by_type_op.setdefault(file_type, {}).setdefault(
+            op, {"completed": 0, "failed": 0, "other": 0}
+        )
+        bucket[status if status in ("completed", "failed") else "other"] += 1
 
         if status == "completed":
             total_ok += 1
@@ -481,6 +578,9 @@ def get_case_report(case_id: str) -> dict:
         "status": case_data.get("status"),
         "created_at": case_data.get("created_at"),
         "finished_at": case_data.get("finished_at"),
+        "priority": case_data.get("priority") or "normal",
+        "metadata": _json_dict(case_data.get("metadata")),
+        "retries": _int_or_none(case_data.get("retries")) or 0,
         "summary": summary_text,
         "totals": {
             "total": total,
@@ -492,6 +592,63 @@ def get_case_report(case_id: str) -> dict:
         "avg_processing_s_by_operation": avg_by_op,
         "avg_processing_s_by_host": avg_by_host,
         "subtasks_by_operation": dict(by_operation),
+        "subtasks_by_type": dict(by_type),
+        "totals_by_type_and_operation": totals_by_type_op,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /subtasks/{subtask_id}, /workers, /stats — dashboard / test client
+# ---------------------------------------------------------------------------
+@app.get("/subtasks/{subtask_id}", response_model=dict, tags=["Dashboard"])
+def get_subtask(subtask_id: str) -> dict:
+    """Return the subtask hash with outputs/params/metadata parsed to JSON."""
+    data = redis_client.hgetall(f"subtask:{subtask_id}")
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Sub-tarea '{subtask_id}' no encontrada.")
+    data["outputs"] = _json_list(data.get("outputs"))
+    data["params"] = _json_dict(data.get("params"))
+    data["metadata"] = _json_dict(data.get("metadata"))
+    return data
+
+
+def _worker_entries() -> list[dict]:
+    worker_ids = sorted(redis_client.smembers("workers:registry"))
+    entries = []
+    for wid in worker_ids:
+        heartbeat = redis_client.hgetall(f"worker:{wid}")
+        entries.append({**heartbeat, "worker_id": wid, "alive": bool(heartbeat)})
+    return entries
+
+
+@app.get("/workers", response_model=list, tags=["Dashboard"])
+def list_workers() -> list:
+    """Workers from ``workers:registry``; ``alive`` = heartbeat key still exists."""
+    return _worker_entries()
+
+
+@app.get("/stats", response_model=dict, tags=["Dashboard"])
+def get_stats() -> dict:
+    """Queue lengths, cases by status and worker liveness."""
+    queues: dict[str, int] = {}
+    for op in sorted(VALID_TASK_TYPES):
+        for key in (queue_key(op), queue_key(op, "high")):
+            queues[key] = redis_client.llen(key)
+
+    cases_by_status: dict[str, int] = defaultdict(int)
+    for cid in redis_client.smembers("cases:registry"):
+        st = redis_client.hget(f"case:{cid}", "status")
+        if st:
+            cases_by_status[st] += 1
+
+    workers = _worker_entries()
+    alive = [w for w in workers if w["alive"]]
+    return {
+        "queues": queues,
+        "cases_by_status": dict(cases_by_status),
+        "workers_alive": len(alive),
+        "workers_total": len(workers),
+        "subtasks_active": sum(_int_or_none(w.get("active_subtasks")) or 0 for w in alive),
     }
 
 
@@ -539,4 +696,13 @@ def _json_list(value: str | None) -> list:
         return parsed if isinstance(parsed, list) else []
     except (json.JSONDecodeError, TypeError):
         return []
-
+
+
+def _json_dict(value: str | None) -> dict:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}

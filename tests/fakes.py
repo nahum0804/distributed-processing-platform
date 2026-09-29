@@ -33,6 +33,18 @@ class FakeStorage:
         local_path.write_bytes(data)
         return local_path
 
+    def download_result(self, ref: str, dest_dir: Path) -> Path:
+        prefix = f"{self.results_bucket}/"
+        key = ref[len(prefix):] if ref.startswith(prefix) else ref
+        data = self.objects.get((self.results_bucket, key))
+        if data is None:
+            raise StorageError(f"no such object: {self.results_bucket}/{key}")
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        local_path = dest_dir / PurePosixPath(key).name
+        local_path.write_bytes(data)
+        return local_path
+
     def upload_outputs(self, paths: Iterable[str | Path], case_id: str, subtask_id: str) -> list[str]:
         if self.fail_upload:
             raise StorageError("fake upload failure")

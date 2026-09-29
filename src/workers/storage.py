@@ -50,6 +50,18 @@ class Storage:
             raise StorageError(f"failed to download {key!r} from bucket {self.settings.dataset_bucket!r}") from e
         return local_path
 
+    def download_result(self, ref: str, dest_dir: Path) -> Path:
+        bucket = self.settings.results_bucket
+        key = ref[len(bucket) + 1:] if ref.startswith(f"{bucket}/") else ref
+        dest_dir = Path(dest_dir)
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            local_path = dest_dir / PurePosixPath(key).name
+            self.client.fget_object(bucket, key, str(local_path))
+        except Exception as e:
+            raise StorageError(f"failed to download {key!r} from bucket {bucket!r}") from e
+        return local_path
+
     def upload_outputs(self, paths: Iterable[str | Path], case_id: str, subtask_id: str) -> list[str]:
         results: list[str] = []
         for path in paths:

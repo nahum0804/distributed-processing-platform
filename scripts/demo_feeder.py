@@ -40,8 +40,12 @@ AUDIO_SPECS = [
 ]
 PROBLEM_NAMES = ("corrupto.mp4", "solo_audio.mp4", "sin_audio.mp4")
 HIGH_PRIORITY_FRACTION = 0.15
-CANCEL_FRACTION = 0.07
-CANCEL_DELAY_RANGE = (3.0, 6.0)
+CANCEL_FRACTION = 0.1
+# Demo cases finish in ~2 s, so cancel quickly or the case is already terminal (409).
+CANCEL_DELAY_RANGE = (0.2, 0.8)
+FAILED_CASE_FRACTION = 0.05
+# Each problem file paired with an operation it cannot satisfy, so the whole case ends failed.
+_FAILING_OPS = {"corrupto.mp4": "transcode_video", "solo_audio.mp4": "generate_thumbnail", "sin_audio.mp4": "extract_audio"}
 
 
 def default_runner(args: list[str]) -> None:
@@ -99,6 +103,10 @@ def pick_case(rng: random.Random, library: dict[str, list[str]]) -> tuple[dict, 
     kinds = [k for k, v in (("video", videos), ("audio", audios), ("mixed", videos and audios)) if v]
     if not kinds:
         raise ValueError("biblioteca vacia")
+    if problems and rng.random() < FAILED_CASE_FRACTION:
+        pairs = [(_key(n), _FAILING_OPS.get(n, "transcode_video")) for n in problems]
+        payload = build_case_payload(pairs, priority="normal", metadata={"source": "demo", "label": "solo-problemas"})
+        return payload, "solo-problemas"
     kind = rng.choice(kinds)
     if kind == "video":
         pairs = [(_key(n), "auto") for n in rng.sample(videos, min(len(videos), rng.randint(3, 6)))]

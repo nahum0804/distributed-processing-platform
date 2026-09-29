@@ -182,3 +182,18 @@ def test_compose_files():
     assert demo["services"]["feeder"]["command"] == ["python", "-m", "scripts.demo_feeder"]
     local = yaml.safe_load((ROOT / "deploy/docker-compose.local.yml").read_text())
     assert local["services"]["redis"]["ports"] == ["127.0.0.1:6379:6379"]
+
+
+def test_pick_case_sometimes_builds_an_all_failing_case():
+    import random
+    import scripts.demo_feeder as df
+
+    library = {"video": ["v1.mp4", "v2.mp4", "v3.mp4"], "audio": ["a1.mp3", "a2.wav"],
+               "problem": ["corrupto.mp4", "solo_audio.mp4", "sin_audio.mp4"]}
+    labels = [df.pick_case(random.Random(seed), library) for seed in range(400)]
+    failing = [p for p, label in labels if label == "solo-problemas"]
+
+    assert failing
+    ops = {s["file_path"].split("/")[-1]: s["task_type"] for s in failing[0]["subtasks"]}
+    assert ops == {"corrupto.mp4": "transcode_video", "solo_audio.mp4": "generate_thumbnail",
+                   "sin_audio.mp4": "extract_audio"}

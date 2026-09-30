@@ -276,3 +276,18 @@ def test_download_result_wraps_client_exception(tmp_path):
 
     with pytest.raises(StorageError):
         storage.download_result("results/c/s/x.mp4", tmp_path)
+
+
+def test_probe_reports_ok_missing_bucket_and_down():
+    from unittest.mock import MagicMock
+
+    settings = Settings.from_env({})
+    client = MagicMock()
+    client.bucket_exists.return_value = True
+    assert Storage(settings, client=client).probe() == "ok"
+
+    client.bucket_exists.return_value = False
+    assert Storage(settings, client=client).probe() == "missing_bucket"
+
+    client.list_buckets.side_effect = OSError("boom")
+    assert Storage(settings, client=client).probe() == "down"

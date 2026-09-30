@@ -45,7 +45,17 @@ def check_minio(settings: Settings, storage=None, create_buckets: bool = False) 
             storage.ensure_buckets()
         except StorageError as e:
             return False, f"No se pudieron crear los buckets en MinIO: {e}"
-    if storage.ping():
+    probe = getattr(storage, "probe", None)
+    if probe is not None:
+        state = probe()
+        if state == "missing_bucket":
+            return True, (
+                f"MinIO OK en {settings.minio_endpoint}, pero el bucket '{settings.dataset_bucket}' aun no existe "
+                "(el worker lo crea al iniciar; o corre este chequeo con --create-buckets)"
+            )
+        if state == "ok":
+            return True, f"MinIO OK en {settings.minio_endpoint}"
+    elif storage.ping():
         return True, f"MinIO OK en {settings.minio_endpoint}"
     return False, (
         f"MinIO no responde en {settings.minio_endpoint} "

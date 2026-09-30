@@ -1,0 +1,262 @@
+{
+  "descripcion": "Worker en Docker (sin GPU) en Windows: caso de 3 videos procesado; NVENC no disponible en el contenedor, respaldo automático a libx264.",
+  "fuente": "GET http://192.168.50.16:8000/cases/2507f5f2-e67a-4ffe-986e-0b90821b02b3/report y GET /subtasks/<id>",
+  "report": {
+    "case_id": "2507f5f2-e67a-4ffe-986e-0b90821b02b3",
+    "status": "completed",
+    "created_at": "2026-09-30T03:58:05.740013+00:00",
+    "finished_at": "2026-09-30T03:58:11.869713+00:00",
+    "priority": "normal",
+    "metadata": {},
+    "retries": 0,
+    "summary": "3 ok",
+    "totals": {
+      "total": 3,
+      "completed": 3,
+      "failed": 0,
+      "pending": 0
+    },
+    "failure_breakdown": {},
+    "avg_processing_s_by_operation": {
+      "transcode_video": 2.257
+    },
+    "avg_processing_s_by_host": {
+      "DESKTOP-796L2A2": 2.257
+    },
+    "subtasks_by_operation": {
+      "transcode_video": [
+        {
+          "subtask_id": "f82cf75e-00f6-4857-bde0-4df02b6b5905",
+          "file_path": "prueba-gpu/video_0031_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:05.771075+00:00",
+          "finished_at": "2026-09-30T03:58:06.289570+00:00",
+          "processing_s": 0.535,
+          "media_duration_s": 11.0,
+          "output_bytes": 170108,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f82cf75e-00f6-4857-bde0-4df02b6b5905/video_0031_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "8889ffa8-dae4-42de-931c-89ae93700f25",
+          "file_path": "prueba-gpu/video_0060_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:05.812524+00:00",
+          "finished_at": "2026-09-30T03:58:06.430559+00:00",
+          "processing_s": 0.682,
+          "media_duration_s": 11.0,
+          "output_bytes": 1232623,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/8889ffa8-dae4-42de-931c-89ae93700f25/video_0060_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "f3b26ab1-810d-4378-a1fb-600efa961e8a",
+          "file_path": "prueba-gpu/video_0254_heavy.avi",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:07.203511+00:00",
+          "finished_at": "2026-09-30T03:58:11.863813+00:00",
+          "processing_s": 5.555,
+          "media_duration_s": 44.042449,
+          "output_bytes": 15375617,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f3b26ab1-810d-4378-a1fb-600efa961e8a/video_0254_heavy.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        }
+      ]
+    },
+    "subtasks_by_type": {
+      "video": [
+        {
+          "subtask_id": "f82cf75e-00f6-4857-bde0-4df02b6b5905",
+          "file_path": "prueba-gpu/video_0031_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:05.771075+00:00",
+          "finished_at": "2026-09-30T03:58:06.289570+00:00",
+          "processing_s": 0.535,
+          "media_duration_s": 11.0,
+          "output_bytes": 170108,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f82cf75e-00f6-4857-bde0-4df02b6b5905/video_0031_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "8889ffa8-dae4-42de-931c-89ae93700f25",
+          "file_path": "prueba-gpu/video_0060_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:05.812524+00:00",
+          "finished_at": "2026-09-30T03:58:06.430559+00:00",
+          "processing_s": 0.682,
+          "media_duration_s": 11.0,
+          "output_bytes": 1232623,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/8889ffa8-dae4-42de-931c-89ae93700f25/video_0060_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "f3b26ab1-810d-4378-a1fb-600efa961e8a",
+          "file_path": "prueba-gpu/video_0254_heavy.avi",
+          "status": "completed",
+          "worker_id": "worker-7d3d825bdf65",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:58:07.203511+00:00",
+          "finished_at": "2026-09-30T03:58:11.863813+00:00",
+          "processing_s": 5.555,
+          "media_duration_s": 44.042449,
+          "output_bytes": 15375617,
+          "outputs": [
+            "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f3b26ab1-810d-4378-a1fb-600efa961e8a/video_0254_heavy.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "libx264",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        }
+      ]
+    },
+    "totals_by_type_and_operation": {
+      "video": {
+        "transcode_video": {
+          "completed": 3,
+          "failed": 0,
+          "other": 0
+        }
+      }
+    }
+  },
+  "subtasks": [
+    {
+      "attempts": "1",
+      "processing_s": "0.535",
+      "metadata": {},
+      "priority": "normal",
+      "assigned_ts": "1790740685.752931",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "170108",
+      "finished_at": "2026-09-30T03:58:06.289570+00:00",
+      "media_duration_s": "11.0",
+      "file_path": "prueba-gpu/video_0031_medium.mp4",
+      "error_type": "",
+      "case_id": "2507f5f2-e67a-4ffe-986e-0b90821b02b3",
+      "outputs": [
+        "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f82cf75e-00f6-4857-bde0-4df02b6b5905/video_0031_medium.mp4"
+      ],
+      "started_at": "2026-09-30T03:58:05.771075+00:00",
+      "worker_id": "worker-7d3d825bdf65",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "libx264",
+      "assigned_at": "2026-09-30T03:58:05.752925+00:00",
+      "subtask_id": "f82cf75e-00f6-4857-bde0-4df02b6b5905",
+      "params": {}
+    },
+    {
+      "attempts": "1",
+      "processing_s": "0.682",
+      "metadata": {},
+      "priority": "normal",
+      "assigned_ts": "1790740685.7476282",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "1232623",
+      "finished_at": "2026-09-30T03:58:06.430559+00:00",
+      "media_duration_s": "11.0",
+      "file_path": "prueba-gpu/video_0060_medium.mp4",
+      "error_type": "",
+      "case_id": "2507f5f2-e67a-4ffe-986e-0b90821b02b3",
+      "outputs": [
+        "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/8889ffa8-dae4-42de-931c-89ae93700f25/video_0060_medium.mp4"
+      ],
+      "started_at": "2026-09-30T03:58:05.812524+00:00",
+      "worker_id": "worker-7d3d825bdf65",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "libx264",
+      "assigned_at": "2026-09-30T03:58:05.747616+00:00",
+      "subtask_id": "8889ffa8-dae4-42de-931c-89ae93700f25",
+      "params": {}
+    },
+    {
+      "attempts": "1",
+      "processing_s": "5.555",
+      "metadata": {},
+      "priority": "normal",
+      "assigned_ts": "1790740686.3075974",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "15375617",
+      "finished_at": "2026-09-30T03:58:11.863813+00:00",
+      "media_duration_s": "44.042449",
+      "file_path": "prueba-gpu/video_0254_heavy.avi",
+      "error_type": "",
+      "case_id": "2507f5f2-e67a-4ffe-986e-0b90821b02b3",
+      "outputs": [
+        "results/2507f5f2-e67a-4ffe-986e-0b90821b02b3/f3b26ab1-810d-4378-a1fb-600efa961e8a/video_0254_heavy.mp4"
+      ],
+      "started_at": "2026-09-30T03:58:07.203511+00:00",
+      "worker_id": "worker-7d3d825bdf65",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "libx264",
+      "assigned_at": "2026-09-30T03:58:06.307580+00:00",
+      "subtask_id": "f3b26ab1-810d-4378-a1fb-600efa961e8a",
+      "params": {}
+    }
+  ]
+}

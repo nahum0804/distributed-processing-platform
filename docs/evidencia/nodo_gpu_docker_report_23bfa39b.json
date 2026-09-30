@@ -1,0 +1,172 @@
+{
+  "case_id": "23bfa39b-18f1-4e7e-9d58-da54c8a7134c",
+  "status": "completed",
+  "created_at": "2026-09-30T04:23:07.806593+00:00",
+  "finished_at": "2026-09-30T04:23:12.433995+00:00",
+  "priority": "normal",
+  "metadata": {},
+  "retries": 0,
+  "summary": "3 ok",
+  "totals": {
+    "total": 3,
+    "completed": 3,
+    "failed": 0,
+    "pending": 0
+  },
+  "failure_breakdown": {},
+  "avg_processing_s_by_operation": {
+    "transcode_video": 1.917
+  },
+  "avg_processing_s_by_host": {
+    "DESKTOP-796L2A2": 1.917
+  },
+  "subtasks_by_operation": {
+    "transcode_video": [
+      {
+        "subtask_id": "80e41813-b3be-4815-a279-ce17e723afcf",
+        "file_path": "prueba-gpu/video_0031_medium.mp4",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:07.834404+00:00",
+        "finished_at": "2026-09-30T04:23:08.907760+00:00",
+        "processing_s": 1.09,
+        "media_duration_s": 11.0,
+        "output_bytes": 174433,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/80e41813-b3be-4815-a279-ce17e723afcf/video_0031_medium.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      },
+      {
+        "subtask_id": "271c1c68-47f3-4468-82e8-c44290c586cd",
+        "file_path": "prueba-gpu/video_0060_medium.mp4",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:07.900252+00:00",
+        "finished_at": "2026-09-30T04:23:08.988674+00:00",
+        "processing_s": 1.16,
+        "media_duration_s": 11.0,
+        "output_bytes": 1678716,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/271c1c68-47f3-4468-82e8-c44290c586cd/video_0060_medium.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      },
+      {
+        "subtask_id": "5ef651e7-3c7a-4661-b7b5-cc4e76306dff",
+        "file_path": "prueba-gpu/video_0254_heavy.avi",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:09.923368+00:00",
+        "finished_at": "2026-09-30T04:23:12.429000+00:00",
+        "processing_s": 3.501,
+        "media_duration_s": 44.042449,
+        "output_bytes": 23717411,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/5ef651e7-3c7a-4661-b7b5-cc4e76306dff/video_0254_heavy.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      }
+    ]
+  },
+  "subtasks_by_type": {
+    "video": [
+      {
+        "subtask_id": "80e41813-b3be-4815-a279-ce17e723afcf",
+        "file_path": "prueba-gpu/video_0031_medium.mp4",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:07.834404+00:00",
+        "finished_at": "2026-09-30T04:23:08.907760+00:00",
+        "processing_s": 1.09,
+        "media_duration_s": 11.0,
+        "output_bytes": 174433,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/80e41813-b3be-4815-a279-ce17e723afcf/video_0031_medium.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      },
+      {
+        "subtask_id": "271c1c68-47f3-4468-82e8-c44290c586cd",
+        "file_path": "prueba-gpu/video_0060_medium.mp4",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:07.900252+00:00",
+        "finished_at": "2026-09-30T04:23:08.988674+00:00",
+        "processing_s": 1.16,
+        "media_duration_s": 11.0,
+        "output_bytes": 1678716,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/271c1c68-47f3-4468-82e8-c44290c586cd/video_0060_medium.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      },
+      {
+        "subtask_id": "5ef651e7-3c7a-4661-b7b5-cc4e76306dff",
+        "file_path": "prueba-gpu/video_0254_heavy.avi",
+        "status": "completed",
+        "worker_id": "worker-a4cbeeeffbef",
+        "host": "DESKTOP-796L2A2",
+        "started_at": "2026-09-30T04:23:09.923368+00:00",
+        "finished_at": "2026-09-30T04:23:12.429000+00:00",
+        "processing_s": 3.501,
+        "media_duration_s": 44.042449,
+        "output_bytes": 23717411,
+        "outputs": [
+          "results/23bfa39b-18f1-4e7e-9d58-da54c8a7134c/5ef651e7-3c7a-4661-b7b5-cc4e76306dff/video_0254_heavy.mp4"
+        ],
+        "error": null,
+        "error_type": null,
+        "attempts": 1,
+        "encoder": "h264_nvenc",
+        "metadata": {},
+        "priority": "normal",
+        "file_type": "video"
+      }
+    ]
+  },
+  "totals_by_type_and_operation": {
+    "video": {
+      "transcode_video": {
+        "completed": 3,
+        "failed": 0,
+        "other": 0
+      }
+    }
+  }
+}

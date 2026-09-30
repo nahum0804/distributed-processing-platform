@@ -8,6 +8,7 @@ carpeta temporal. Si FFmpeg no está instalado, las pruebas que lo necesitan se 
 """
 
 import json
+import os
 import shutil
 import subprocess
 import threading
@@ -567,3 +568,105 @@ def test_process_usa_timeout_proporcional(media, tmp_path, monkeypatch):
     mp.process("extract_audio", str(media["video"]), str(tmp_path / "b"))                # 3 s → mínimo 30
     mp.process("transcode_video", str(media["video"]), str(tmp_path / "c"), timeout=45)  # explícito
     assert timeouts == [60.0, 30.0, 45]
+
+
+# ---------- Ctrl+C en Windows: procesos hijos en su propio grupo ----------
+@pytest.mark.skipif(os.name != "nt", reason="solo aplica a la consola de Windows")
+def test_procesos_hijos_en_grupo_propio_en_windows(media, tmp_path, monkeypatch):
+    # Sin CREATE_NEW_PROCESS_GROUP, el Ctrl+C de la consola también le llega a FFmpeg
+    # y corta la sub-tarea en curso (código 255) durante el apagado del worker.
+    banderas = []  # (programa, creationflags)
+    real_popen, real_run = subprocess.Popen, subprocess.run
+
+    def popen_espia(cmd, *args, **kwargs):
+        banderas.append((cmd[0], kwargs.get("creationflags", 0)))
+        return real_popen(cmd, *args, **kwargs)
+
+    def run_espia(cmd, *args, **kwargs):
+        banderas.append((cmd[0], kwargs.get("creationflags", 0)))
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", popen_espia)
+    monkeypatch.setattr(subprocess, "run", run_espia)
+    monkeypatch.setattr(mp, "_hw_cache", None)  # forzar la detección real
+
+    mp.detect_hw_encoders()                                                  # run: ffmpeg (+ nvidia-smi)
+    mp.process("extract_audio", str(media["video"]), str(tmp_path))          # run: ffprobe; Popen: ffmpeg
+
+    programas = {programa for programa, _ in banderas}
+    assert {"ffmpeg", "ffprobe"} <= programas
+    for programa, flags in banderas:
+        assert flags & subprocess.CREATE_NEW_PROCESS_GROUP, f"{programa} sin grupo de procesos propio"
+
+
+# ---------- nvidia-smi fuera del PATH (Docker Desktop con WSL2) ----------
+SMI_WSL = "/usr/lib/wsl/drivers/nv_dispi.inf_amd64_abc123/nvidia-smi"
+
+
+def _simular_contenedor_wsl(monkeypatch, encontrados, respuesta_smi):
+    """Simula un contenedor Linux donde nvidia-smi no está en el PATH.
+
+    `encontrados`: rutas que devuelve la búsqueda en /usr/lib/wsl/drivers.
+    `respuesta_smi`: función (cmd, env) -> CompletedProcess, o una excepción a lanzar.
+    Devuelve la lista de llamadas a nvidia-smi como (ruta, env).
+    """
+    llamadas = []
+
+    def run_falso(cmd, *args, **kwargs):
+        if cmd[0] == "ffmpeg":  # sin NVENC: solo interesa el nombre de la GPU
+            return subprocess.CompletedProcess(cmd, 1, b"", b"")
+        llamadas.append((cmd[0], kwargs.get("env")))
+        if isinstance(respuesta_smi, Exception):
+            raise respuesta_smi
+        return respuesta_smi(cmd, kwargs.get("env"))
+
+    real_which = shutil.which
+    monkeypatch.setattr(mp, "_IS_LINUX", True)
+    monkeypatch.setattr(mp.shutil, "which", lambda n: None if n == "nvidia-smi" else real_which(n) or n)
+    monkeypatch.setattr(mp.glob, "glob", lambda patron: list(encontrados))
+    monkeypatch.setattr(subprocess, "run", run_falso)
+    return llamadas
+
+
+def test_nvidia_smi_en_carpeta_wsl(monkeypatch):
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/opt/previa")
+    entorno_antes = dict(os.environ)
+    llamadas = _simular_contenedor_wsl(
+        monkeypatch, [SMI_WSL],
+        lambda cmd, env: subprocess.CompletedProcess(cmd, 0, b"NVIDIA GeForce RTX 5060 Ti\n", b""),
+    )
+
+    assert mp._detect_hw_uncached() == {"nvenc": False, "gpu_name": "NVIDIA GeForce RTX 5060 Ti"}
+    (ruta, env), = llamadas
+    assert ruta == SMI_WSL
+    # El entorno propio solo va a ese subproceso: su carpeta primero, luego la ruta previa.
+    carpeta = os.path.dirname(SMI_WSL)
+    assert env["LD_LIBRARY_PATH"] == carpeta + os.pathsep + "/opt/previa"
+    assert dict(os.environ) == entorno_antes, "no se debe modificar os.environ"
+
+
+def test_nvidia_smi_no_encontrado_da_none(monkeypatch):
+    llamadas = _simular_contenedor_wsl(monkeypatch, [], lambda cmd, env: None)
+    assert mp._detect_hw_uncached() == {"nvenc": False, "gpu_name": None}
+    assert llamadas == []
+
+
+def test_nvidia_smi_que_falla_no_lanza(monkeypatch):
+    # nvidia-smi encontrado pero sin libnvidia-ml (código 12) o con un error del sistema:
+    # detect_hw_encoders() nunca lanza y deja gpu_name en None.
+    _simular_contenedor_wsl(
+        monkeypatch, [SMI_WSL], lambda cmd, env: subprocess.CompletedProcess(cmd, 12, b"", b"no libnvidia-ml"),
+    )
+    assert mp._detect_hw_uncached()["gpu_name"] is None
+    _simular_contenedor_wsl(monkeypatch, [SMI_WSL], OSError("fallo simulado"))
+    assert mp._detect_hw_uncached()["gpu_name"] is None
+
+
+def test_busqueda_wsl_solo_en_linux(monkeypatch):
+    def glob_prohibido(patron):
+        raise AssertionError("no se debe buscar en /usr/lib/wsl fuera de Linux")
+
+    monkeypatch.setattr(mp, "_IS_LINUX", False)
+    monkeypatch.setattr(mp.shutil, "which", lambda n: None)
+    monkeypatch.setattr(mp.glob, "glob", glob_prohibido)
+    assert mp._nvidia_smi_candidates() == []

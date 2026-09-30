@@ -1,0 +1,258 @@
+{
+  "descripcion": "ANTES de la corrección: Ctrl+C en la consola de Windows cortó a FFmpeg (código 255); la sub-tarea de un archivo válido quedó como CorruptInputError.",
+  "fuente": "GET http://192.168.50.16:8000/cases/a352cd77-daba-4ecb-9f9d-629756273583/report y GET /subtasks/<id>",
+  "report": {
+    "case_id": "a352cd77-daba-4ecb-9f9d-629756273583",
+    "status": "partially_completed",
+    "created_at": "2026-09-30T03:22:35.461649+00:00",
+    "finished_at": "2026-09-30T03:22:42.695201+00:00",
+    "priority": "normal",
+    "metadata": {},
+    "retries": 0,
+    "summary": "2 ok; 1 fallida(s) (1 CorruptInputError)",
+    "totals": {
+      "total": 3,
+      "completed": 2,
+      "failed": 1,
+      "pending": 0
+    },
+    "failure_breakdown": {
+      "CorruptInputError": 1
+    },
+    "avg_processing_s_by_operation": {
+      "transcode_video": 0.708
+    },
+    "avg_processing_s_by_host": {
+      "DESKTOP-796L2A2": 0.708
+    },
+    "subtasks_by_operation": {
+      "transcode_video": [
+        {
+          "subtask_id": "50476437-60c8-46ab-a38f-60c8c3cf53bc",
+          "file_path": "prueba-gpu/video_0031_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:40.534717+00:00",
+          "finished_at": "2026-09-30T03:22:41.169161+00:00",
+          "processing_s": 0.644,
+          "media_duration_s": 11.0,
+          "output_bytes": 176085,
+          "outputs": [
+            "results/a352cd77-daba-4ecb-9f9d-629756273583/50476437-60c8-46ab-a38f-60c8c3cf53bc/video_0031_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "3c3b07ff-3603-4f00-97c2-e911a6ee7845",
+          "file_path": "prueba-gpu/video_0060_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:41.213520+00:00",
+          "finished_at": "2026-09-30T03:22:41.850307+00:00",
+          "processing_s": 0.664,
+          "media_duration_s": 11.0,
+          "output_bytes": 1686772,
+          "outputs": [
+            "results/a352cd77-daba-4ecb-9f9d-629756273583/3c3b07ff-3603-4f00-97c2-e911a6ee7845/video_0060_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "cdd12827-f611-4f83-8fd7-ac469781238e",
+          "file_path": "prueba-gpu/video_0254_heavy.avi",
+          "status": "failed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:42.005550+00:00",
+          "finished_at": "2026-09-30T03:22:42.689495+00:00",
+          "processing_s": 0.817,
+          "media_duration_s": null,
+          "output_bytes": 0,
+          "outputs": [],
+          "error": "video_0254_heavy.avi: FFmpeg falló (código 255): sin detalles",
+          "error_type": "CorruptInputError",
+          "attempts": 1,
+          "encoder": null,
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        }
+      ]
+    },
+    "subtasks_by_type": {
+      "video": [
+        {
+          "subtask_id": "50476437-60c8-46ab-a38f-60c8c3cf53bc",
+          "file_path": "prueba-gpu/video_0031_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:40.534717+00:00",
+          "finished_at": "2026-09-30T03:22:41.169161+00:00",
+          "processing_s": 0.644,
+          "media_duration_s": 11.0,
+          "output_bytes": 176085,
+          "outputs": [
+            "results/a352cd77-daba-4ecb-9f9d-629756273583/50476437-60c8-46ab-a38f-60c8c3cf53bc/video_0031_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "3c3b07ff-3603-4f00-97c2-e911a6ee7845",
+          "file_path": "prueba-gpu/video_0060_medium.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:41.213520+00:00",
+          "finished_at": "2026-09-30T03:22:41.850307+00:00",
+          "processing_s": 0.664,
+          "media_duration_s": 11.0,
+          "output_bytes": 1686772,
+          "outputs": [
+            "results/a352cd77-daba-4ecb-9f9d-629756273583/3c3b07ff-3603-4f00-97c2-e911a6ee7845/video_0060_medium.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        },
+        {
+          "subtask_id": "cdd12827-f611-4f83-8fd7-ac469781238e",
+          "file_path": "prueba-gpu/video_0254_heavy.avi",
+          "status": "failed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:22:42.005550+00:00",
+          "finished_at": "2026-09-30T03:22:42.689495+00:00",
+          "processing_s": 0.817,
+          "media_duration_s": null,
+          "output_bytes": 0,
+          "outputs": [],
+          "error": "video_0254_heavy.avi: FFmpeg falló (código 255): sin detalles",
+          "error_type": "CorruptInputError",
+          "attempts": 1,
+          "encoder": null,
+          "metadata": {},
+          "priority": "normal",
+          "file_type": "video"
+        }
+      ]
+    },
+    "totals_by_type_and_operation": {
+      "video": {
+        "transcode_video": {
+          "completed": 2,
+          "failed": 1,
+          "other": 0
+        }
+      }
+    }
+  },
+  "subtasks": [
+    {
+      "attempts": "1",
+      "processing_s": "0.644",
+      "metadata": {},
+      "priority": "normal",
+      "assigned_ts": "1790738560.5239215",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "176085",
+      "finished_at": "2026-09-30T03:22:41.169161+00:00",
+      "media_duration_s": "11.0",
+      "file_path": "prueba-gpu/video_0031_medium.mp4",
+      "error_type": "",
+      "case_id": "a352cd77-daba-4ecb-9f9d-629756273583",
+      "outputs": [
+        "results/a352cd77-daba-4ecb-9f9d-629756273583/50476437-60c8-46ab-a38f-60c8c3cf53bc/video_0031_medium.mp4"
+      ],
+      "started_at": "2026-09-30T03:22:40.534717+00:00",
+      "worker_id": "worker-DESKTOP-796L2A2",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "h264_nvenc",
+      "assigned_at": "2026-09-30T03:22:40.523909+00:00",
+      "subtask_id": "50476437-60c8-46ab-a38f-60c8c3cf53bc",
+      "params": {}
+    },
+    {
+      "attempts": "1",
+      "processing_s": "0.664",
+      "metadata": {},
+      "priority": "normal",
+      "assigned_ts": "1790738561.1851885",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "1686772",
+      "finished_at": "2026-09-30T03:22:41.850307+00:00",
+      "media_duration_s": "11.0",
+      "file_path": "prueba-gpu/video_0060_medium.mp4",
+      "error_type": "",
+      "case_id": "a352cd77-daba-4ecb-9f9d-629756273583",
+      "outputs": [
+        "results/a352cd77-daba-4ecb-9f9d-629756273583/3c3b07ff-3603-4f00-97c2-e911a6ee7845/video_0060_medium.mp4"
+      ],
+      "started_at": "2026-09-30T03:22:41.213520+00:00",
+      "worker_id": "worker-DESKTOP-796L2A2",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "h264_nvenc",
+      "assigned_at": "2026-09-30T03:22:41.185175+00:00",
+      "subtask_id": "3c3b07ff-3603-4f00-97c2-e911a6ee7845",
+      "params": {}
+    },
+    {
+      "subtask_id": "cdd12827-f611-4f83-8fd7-ac469781238e",
+      "case_id": "a352cd77-daba-4ecb-9f9d-629756273583",
+      "operation": "transcode_video",
+      "task_type": "transcode_video",
+      "file_path": "prueba-gpu/video_0254_heavy.avi",
+      "status": "failed",
+      "params": {},
+      "metadata": {},
+      "priority": "normal",
+      "worker_id": "worker-DESKTOP-796L2A2",
+      "assigned_at": "2026-09-30T03:22:41.872241+00:00",
+      "assigned_ts": "1790738561.8722558",
+      "attempts": "1",
+      "started_at": "2026-09-30T03:22:42.005550+00:00",
+      "progress": "0",
+      "host": "DESKTOP-796L2A2",
+      "finished_at": "2026-09-30T03:22:42.689495+00:00",
+      "processing_s": "0.817",
+      "media_duration_s": "",
+      "output_bytes": "0",
+      "outputs": [],
+      "error": "video_0254_heavy.avi: FFmpeg falló (código 255): sin detalles",
+      "error_type": "CorruptInputError",
+      "encoder": ""
+    }
+  ]
+}

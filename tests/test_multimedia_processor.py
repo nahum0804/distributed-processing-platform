@@ -8,6 +8,7 @@ carpeta temporal. Si FFmpeg no está instalado, las pruebas que lo necesitan se 
 """
 
 import json
+import os
 import shutil
 import subprocess
 import threading
@@ -567,3 +568,32 @@ def test_process_usa_timeout_proporcional(media, tmp_path, monkeypatch):
     mp.process("extract_audio", str(media["video"]), str(tmp_path / "b"))                # 3 s → mínimo 30
     mp.process("transcode_video", str(media["video"]), str(tmp_path / "c"), timeout=45)  # explícito
     assert timeouts == [60.0, 30.0, 45]
+
+
+# ---------- Ctrl+C en Windows: procesos hijos en su propio grupo ----------
+@pytest.mark.skipif(os.name != "nt", reason="solo aplica a la consola de Windows")
+def test_procesos_hijos_en_grupo_propio_en_windows(media, tmp_path, monkeypatch):
+    # Sin CREATE_NEW_PROCESS_GROUP, el Ctrl+C de la consola también le llega a FFmpeg
+    # y corta la sub-tarea en curso (código 255) durante el apagado del worker.
+    banderas = []  # (programa, creationflags)
+    real_popen, real_run = subprocess.Popen, subprocess.run
+
+    def popen_espia(cmd, *args, **kwargs):
+        banderas.append((cmd[0], kwargs.get("creationflags", 0)))
+        return real_popen(cmd, *args, **kwargs)
+
+    def run_espia(cmd, *args, **kwargs):
+        banderas.append((cmd[0], kwargs.get("creationflags", 0)))
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", popen_espia)
+    monkeypatch.setattr(subprocess, "run", run_espia)
+    monkeypatch.setattr(mp, "_hw_cache", None)  # forzar la detección real
+
+    mp.detect_hw_encoders()                                                  # run: ffmpeg (+ nvidia-smi)
+    mp.process("extract_audio", str(media["video"]), str(tmp_path))          # run: ffprobe; Popen: ffmpeg
+
+    programas = {programa for programa, _ in banderas}
+    assert {"ffmpeg", "ffprobe"} <= programas
+    for programa, flags in banderas:
+        assert flags & subprocess.CREATE_NEW_PROCESS_GROUP, f"{programa} sin grupo de procesos propio"

@@ -24,6 +24,7 @@ import argparse
 import json
 import logging
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -124,6 +125,14 @@ _KEEP_EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
 # Opciones comunes a todos los comandos de FFmpeg.
 _FFMPEG_BASE = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
+
+# Banderas de creación de TODOS los procesos hijos (ffmpeg, ffprobe, nvidia-smi).
+# En Windows, Ctrl+C en una consola se envía a todos los procesos de esa consola:
+# FFmpeg lo recibiría y se cortaría (código 255) mientras el worker intenta terminar
+# la sub-tarea en curso. En su propio grupo de procesos, el Ctrl+C de la consola no
+# le llega; el timeout sigue funcionando porque kill() no depende de la consola.
+# En Linux/macOS debe ser 0 (la señal solo llega al proceso principal).
+_CREATIONFLAGS = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
 
 # ---------- GPU (NVENC) ----------
 # Encoder H.264 por hardware de NVIDIA. Es una constante (no cambia en ejecución);
@@ -286,7 +295,8 @@ def probe(src: str) -> dict:
     ]
     try:
         completed = subprocess.run(
-            cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=PROBE_TIMEOUT_S
+            cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=PROBE_TIMEOUT_S,
+            creationflags=_CREATIONFLAGS,
         )
     except FileNotFoundError as exc:
         raise FFmpegNotAvailableError("ffprobe no está instalado o no está en el PATH") from exc
@@ -339,6 +349,7 @@ def _detect_hw_uncached() -> dict:
                     "-frames:v", "1", "-c:v", _NVENC_ENCODER, "-f", "null", "-",
                 ],
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+                creationflags=_CREATIONFLAGS,
             )
             result["nvenc"] = completed.returncode == 0
             if not result["nvenc"]:
@@ -352,6 +363,7 @@ def _detect_hw_uncached() -> dict:
             completed = subprocess.run(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+                creationflags=_CREATIONFLAGS,
             )
             lines = completed.stdout.decode("utf-8", errors="replace").strip().splitlines()
             if completed.returncode == 0 and lines:
@@ -517,7 +529,8 @@ def _run(cmd: list[str], timeout: float, name: str, tracker: Optional[_ProgressT
     with tempfile.TemporaryFile() as err_file:
         try:
             proc = subprocess.Popen(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file
+                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file,
+                creationflags=_CREATIONFLAGS,
             )
         except FileNotFoundError as exc:
             raise FFmpegNotAvailableError("ffmpeg no está instalado o no está en el PATH") from exc

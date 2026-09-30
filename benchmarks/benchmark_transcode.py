@@ -9,7 +9,8 @@ Uso (desde la raíz del repo):
     py benchmarks\\benchmark_transcode.py --input <video> --runs 3
     py benchmarks\\benchmark_transcode.py --generate 60      # video sintético de 60 s a 1920x1080
 
-La tabla se imprime en Markdown y se guarda en benchmarks/resultados_<fecha>.md.
+La tabla se imprime en Markdown y se guarda en benchmarks/resultados_<fecha>_<HHMMSS>.md.
+Nunca sobrescribe un informe existente: si el nombre ya existe, agrega _2, _3...
 """
 
 import argparse
@@ -202,6 +203,15 @@ def build_report(src: Path, info: dict, rows: list, runs: int, threads, hw: dict
     return "\n".join(lines)
 
 
+def unique_path(path: Path) -> Path:
+    """Devuelve `path` si no existe; si ya existe, agrega _2, _3... para no sobrescribir resultados."""
+    candidate, n = path, 2
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem}_{n}{path.suffix}")
+        n += 1
+    return candidate
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Benchmark CPU (libx264) vs GPU (h264_nvenc) de transcode_video")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -234,7 +244,8 @@ def main() -> int:
             rows.append((name, run_config(src, params, expected, args.runs, args.threads, args.timeout)))
         report = build_report(Path(src), info, rows, args.runs, args.threads, hw)
 
-    output = args.output or REPO_ROOT / "benchmarks" / f"resultados_{datetime.now():%Y-%m-%d_%H%M}.md"
+    output = args.output or REPO_ROOT / "benchmarks" / f"resultados_{datetime.now():%Y-%m-%d_%H%M%S}.md"
+    output = unique_path(output)
     output.write_text(report, encoding="utf-8")
     print("\n" + report)
     print(f"Guardado en {output}")

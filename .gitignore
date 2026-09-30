@@ -6,3 +6,5 @@ work/
 .pytest_cache/
 dataset/media/
 resultados/
+dataset/real/
+dataset/real_sample/

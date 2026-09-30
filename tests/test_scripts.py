@@ -780,3 +780,26 @@ def test_check_env_file_clean_setup_has_no_warnings(tmp_path):
                                   "COORDINATOR_URL": "http://192.168.1.10:8000", "MINIO_ENDPOINT": "192.168.1.10:9000"})
 
     assert check_env_file(settings, env_path=env, in_container=True) == []
+
+
+class _ProbeStorage:
+    def __init__(self, state):
+        self.state = state
+
+    def probe(self):
+        return self.state
+
+    def ensure_buckets(self):
+        pass
+
+
+@pytest.mark.parametrize("state,ok,fragment", [
+    ("ok", True, "MinIO OK"),
+    ("missing_bucket", True, "aun no existe"),
+    ("down", False, "no responde"),
+])
+def test_check_minio_distinguishes_missing_bucket_from_unreachable(state, ok, fragment):
+    result_ok, detail = check_connectivity.check_minio(Settings.from_env({}), storage=_ProbeStorage(state))
+
+    assert result_ok is ok
+    assert fragment in detail

@@ -262,4 +262,24 @@ Opciones: `--threads N` (por defecto FFmpeg usa todos los núcleos), `--timeout 
 
 ## 8. Resultados del benchmark CPU vs GPU
 
-Pendiente de ejecutar cuando el driver NVIDIA esté en la versión 610 o superior (sección 6). Aquí se pegará la tabla de `benchmarks/resultados_<fecha>.md`.
+Ejecutado el 2026-09-29 en el nodo GPU: Windows 11, 16 CPU lógicas, NVIDIA GeForce RTX 5060 Ti (driver 617.14), FFmpeg 9.0.2 (Gyan). Tres corridas por configuración, con FFmpeg usando todos los hilos. Los informes completos están en `docs/evidencia/resultados_2026-09-29_2034.md` (sintético) y `docs/evidencia/resultados_2026-09-29_2032.md` (dataset).
+
+**Video sintético** (`--generate 60`): 1920x1080, 60 s, H.264.
+
+| Configuración | Tiempo promedio (s) | Desv. estándar (s) | Velocidad (× tiempo real) | Tamaño salida (MB) | Tiempo CPU FFmpeg (s) | Núcleos ocupados (CPU/tiempo) |
+|---|---:|---:|---:|---:|---:|---:|
+| libx264 fast (CPU) | 9.41 | 0.03 | 6.37× | 47.13 | 106.59 | 11.32 |
+| libx264 medium (CPU) | 10.02 | 0.14 | 5.99× | 46.77 | 113.71 | 11.35 |
+| h264_nvenc p4 (GPU) | 3.11 | 0.01 | 19.31× | 80.41 | 15.13 | 4.87 |
+
+**Video heavy del dataset** (`documental_mar/video_0254_heavy.avi`, semilla 42): 1280x720, 44 s, MPEG-4.
+
+| Configuración | Tiempo promedio (s) | Desv. estándar (s) | Velocidad (× tiempo real) | Tamaño salida (MB) | Tiempo CPU FFmpeg (s) | Núcleos ocupados (CPU/tiempo) |
+|---|---:|---:|---:|---:|---:|---:|
+| libx264 fast (CPU) | 2.65 | 0.04 | 16.59× | 16.02 | 28.07 | 10.57 |
+| libx264 medium (CPU) | 2.88 | 0.03 | 15.28× | 15.70 | 31.06 | 10.77 |
+| h264_nvenc p4 (GPU) | 0.99 | 0.02 | 44.61× | 23.41 | 3.98 | 4.03 |
+
+**Conclusión.** NVENC (`h264_nvenc`, preset p4) fue **entre 2.7 y 3.0 veces más rápido** que libx264 `fast`, y entre 2.9 y 3.2 veces más rápido que `medium`. En el sintético de 1080p bajó de 9.41 s a 3.11 s (de 6.4× a 19.3× tiempo real); en el video heavy de 720p, de 2.65 s a 0.99 s (de 16.6× a 44.6× tiempo real). La mayor ganancia está en la CPU liberada: el tiempo de CPU de FFmpeg bajó **un 86 %** en ambos casos (de 106.6 s a 15.1 s y de 28.1 s a 4.0 s). Con libx264, FFmpeg ocupaba en promedio entre 10.6 y 11.3 de los 16 núcleos lógicos; con NVENC, entre 4.0 y 4.9. Esos núcleos no desaparecen del todo porque la decodificación, el escalado y el audio AAC siguen en la CPU; solo la codificación de video pasa al chip NVENC. Esa CPU liberada queda disponible para las demás sub-tareas del nodo. Esto muestra la heterogeneidad de cómputo de la Unidad 1: el hardware especializado gana en velocidad y en uso de CPU, y la CPU general gana en compresión.
+
+**Compromiso entre velocidad y tamaño (`cq` vs `crf`).** Con el mismo valor de calidad (`crf 23` en libx264, `cq 23` en NVENC), NVENC produjo archivos **entre un 46 % y un 71 % más grandes** (23.4 MB contra 16.0 MB, y 80.4 MB contra 47.1 MB). Las dos escalas se parecen, pero no son equivalentes: el codificador por hardware prioriza la velocidad y usa menos herramientas de compresión que x264. Es un compromiso deliberado: el nodo GPU entrega el video mucho antes y deja la CPU libre, a cambio de archivos más grandes. Si el espacio en MinIO importara más que el tiempo, se puede subir `cq` (con `params={"crf": ...}`) o usar un preset de NVENC más lento (`p5`–`p7`) para acercar los tamaños.

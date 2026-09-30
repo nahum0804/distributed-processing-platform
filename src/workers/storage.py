@@ -40,6 +40,15 @@ class Storage:
         except Exception:
             return False
 
+    def probe(self) -> str:
+        """"ok", "missing_bucket" (server and credentials fine) or "down"."""
+        try:
+            self.client.list_buckets()
+            exists = bool(self.client.bucket_exists(self.settings.dataset_bucket))
+        except Exception:
+            return "down"
+        return "ok" if exists else "missing_bucket"
+
     def download(self, key: str, dest_dir: Path) -> Path:
         dest_dir = Path(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)

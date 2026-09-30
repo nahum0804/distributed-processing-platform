@@ -21,9 +21,11 @@ Uso por línea de comandos (pruebas manuales):
 """
 
 import argparse
+import glob
 import json
 import logging
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -125,6 +127,14 @@ _KEEP_EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 # Opciones comunes a todos los comandos de FFmpeg.
 _FFMPEG_BASE = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
 
+# Banderas de creación de TODOS los procesos hijos (ffmpeg, ffprobe, nvidia-smi).
+# En Windows, Ctrl+C en una consola se envía a todos los procesos de esa consola:
+# FFmpeg lo recibiría y se cortaría (código 255) mientras el worker intenta terminar
+# la sub-tarea en curso. En su propio grupo de procesos, el Ctrl+C de la consola no
+# le llega; el timeout sigue funcionando porque kill() no depende de la consola.
+# En Linux/macOS debe ser 0 (la señal solo llega al proceso principal).
+_CREATIONFLAGS = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+
 # ---------- GPU (NVENC) ----------
 # Encoder H.264 por hardware de NVIDIA. Es una constante (no cambia en ejecución);
 # las pruebas la reemplazan por un nombre inexistente para simular un fallo de NVENC.
@@ -147,6 +157,11 @@ _NVENC_ERROR_HINTS = ("nvenc", "cuda", "no capable devices")
 
 # Tiempo máximo para la detección de hardware.
 HW_DETECT_TIMEOUT_S = 15
+
+# Dónde monta Docker Desktop (WSL2) nvidia-smi dentro de un contenedor Linux con GPU.
+# La carpeta intermedia lleva un hash que cambia con cada versión del driver.
+_WSL_NVIDIA_SMI_GLOB = "/usr/lib/wsl/drivers/*/nvidia-smi"
+_IS_LINUX = sys.platform.startswith("linux")
 
 # Operaciones que reportan progreso real (las demás solo reportan 0 y 100).
 _PROGRESS_OPERATIONS = ("transcode_video", "extract_audio", "convert_audio")
@@ -286,7 +301,8 @@ def probe(src: str) -> dict:
     ]
     try:
         completed = subprocess.run(
-            cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=PROBE_TIMEOUT_S
+            cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=PROBE_TIMEOUT_S,
+            creationflags=_CREATIONFLAGS,
         )
     except FileNotFoundError as exc:
         raise FFmpegNotAvailableError("ffprobe no está instalado o no está en el PATH") from exc
@@ -339,6 +355,7 @@ def _detect_hw_uncached() -> dict:
                     "-frames:v", "1", "-c:v", _NVENC_ENCODER, "-f", "null", "-",
                 ],
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+                creationflags=_CREATIONFLAGS,
             )
             result["nvenc"] = completed.returncode == 0
             if not result["nvenc"]:
@@ -347,21 +364,54 @@ def _detect_hw_uncached() -> dict:
     except Exception:
         logger.info("no se pudo detectar NVENC", exc_info=True)
 
-    try:
-        if shutil.which("nvidia-smi"):
+    for smi_path, smi_env in _nvidia_smi_candidates():
+        try:
             completed = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                [smi_path, "--query-gpu=name", "--format=csv,noheader"],
                 stdin=subprocess.DEVNULL, capture_output=True, timeout=HW_DETECT_TIMEOUT_S,
+                creationflags=_CREATIONFLAGS, env=smi_env,
             )
             lines = completed.stdout.decode("utf-8", errors="replace").strip().splitlines()
-            if completed.returncode == 0 and lines:
-                result["gpu_name"] = lines[0].strip() or None
-    except Exception:
-        logger.info("no se pudo obtener el nombre de la GPU", exc_info=True)
+            if completed.returncode == 0 and lines and lines[0].strip():
+                result["gpu_name"] = lines[0].strip()
+                break
+        except Exception:
+            logger.info("no se pudo obtener el nombre de la GPU con %s", smi_path, exc_info=True)
 
     # TODO: QSV (Intel) y AMF (AMD) están en el build de FFmpeg, pero el nodo
     # especializado es NVIDIA; se detectarían igual, con una codificación real.
     return result
+
+
+def _nvidia_smi_candidates() -> list[tuple[str, Optional[dict]]]:
+    """Formas de ejecutar nvidia-smi: lista de (ruta, entorno para ese subproceso).
+
+    1. Si está en el PATH, se usa tal cual (entorno None = el del proceso).
+    2. Si no, y estamos en Linux, se busca donde Docker Desktop (WSL2) monta el driver
+       dentro del contenedor: /usr/lib/wsl/drivers/<carpeta con hash>/nvidia-smi.
+       Esa carpeta no está en el PATH y nvidia-smi necesita su libnvidia-ml.so, que
+       está en la misma carpeta; por eso se le pasa un entorno propio con
+       LD_LIBRARY_PATH. Se copia el entorno (env=) y NO se toca os.environ, para
+       no cambiar el estado global del proceso (el módulo debe ser thread-safe).
+    Nunca lanza excepciones: si no encuentra nada, devuelve una lista vacía.
+    """
+    try:
+        path = shutil.which("nvidia-smi")
+        if path:
+            return [(path, None)]
+        if not _IS_LINUX:
+            return []
+        candidates = []
+        for smi in sorted(glob.glob(_WSL_NVIDIA_SMI_GLOB)):
+            folder = os.path.dirname(smi)
+            env = dict(os.environ)
+            previous = env.get("LD_LIBRARY_PATH")
+            env["LD_LIBRARY_PATH"] = folder + (os.pathsep + previous if previous else "")
+            candidates.append((smi, env))
+        return candidates
+    except Exception:
+        logger.info("no se pudo buscar nvidia-smi", exc_info=True)
+        return []
 
 
 def _choose_encoder(operation: str, params: dict, name: str) -> Optional[str]:
@@ -517,7 +567,8 @@ def _run(cmd: list[str], timeout: float, name: str, tracker: Optional[_ProgressT
     with tempfile.TemporaryFile() as err_file:
         try:
             proc = subprocess.Popen(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file
+                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file,
+                creationflags=_CREATIONFLAGS,
             )
         except FileNotFoundError as exc:
             raise FFmpegNotAvailableError("ffmpeg no está instalado o no está en el PATH") from exc

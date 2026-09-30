@@ -44,7 +44,7 @@ Clases: video light 2-5 s a 320x240, medium 10-20 s a 640x360, heavy 30-45 s a 1
 - Casos homogeneos (`batch`): 73 casos. Un lote de ingesta contiene un solo tipo; videos con `transcode_video` (algunos lotes con `generate_thumbnail`) y audios con `convert_audio`.
 - Casos heterogeneos (`event+session`): 57 casos. Mezclan audio y video, rotando operaciones validas para cada tipo.
 - Casos por usuario (`user`): 5 casos con `task_type: "auto"`.
-- Total: 135 casos (73 homogeneos, 62 heterogeneos), 999 sub-tareas, de 3 a 15 por caso.
+- Total: 135 casos (73 homogeneos y 62 heterogeneos, contando los 5 casos por usuario como heterogeneos), 999 sub-tareas, de 5 a 11 por caso (el generador admite de 3 a 15).
 - Los archivos problematicos (bytes aleatorios, mp4 sin video, mp4 sin audio, ~3 %) van incluidos para que aparezcan casos `partially_completed`.
 
 ## Regenerar

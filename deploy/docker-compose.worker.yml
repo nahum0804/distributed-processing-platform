@@ -16,4 +16,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    stop_grace_period: 11m
+    # El worker termina la subtarea en curso antes de salir (SIGTERM -> stop_event); el timeout
+    # proporcional de FFmpeg puede llegar al tope de 1800 s (30 min), asi que 31m cubre el peor caso
+    # sin que Docker mande SIGKILL a mitad de un transcode.
+    stop_grace_period: 31m

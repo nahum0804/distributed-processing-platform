@@ -19,6 +19,7 @@ OPERATIONS = (
 )
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
+_HWACCEL_VALUES = ("nvenc",)
 
 
 def _default_worker_id() -> str:
@@ -83,6 +84,15 @@ def _parse_worker_queues(raw: str) -> tuple[str, ...]:
     return tuple(queues)
 
 
+def _parse_hwaccel(raw: str | None) -> str | None:
+    if raw is None or raw.strip() == "":
+        return None
+    value = raw.strip().lower()
+    if value not in _HWACCEL_VALUES:
+        raise ValueError(f"invalid HWACCEL: {raw!r} (accepted: {', '.join(_HWACCEL_VALUES)})")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     redis_host: str = "localhost"
@@ -106,12 +116,15 @@ class Settings:
     reaper_interval: float = 10.0
     reaper_max_age: float = 2100.0
     max_attempts: int = 3
+    hwaccel: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
         if env is None:
             dotenv.load_dotenv()
             env = os.environ
+        # A .env saved on Windows carries \r on every value; strip it and stray spaces.
+        env = {k: v.strip() for k, v in env.items() if isinstance(v, str)}
 
         coordinator_url = _str(env, "COORDINATOR_URL", cls.coordinator_url).rstrip("/")
 
@@ -150,10 +163,14 @@ class Settings:
             reaper_interval=_float(env, "REAPER_INTERVAL", cls.reaper_interval),
             reaper_max_age=_float(env, "REAPER_MAX_AGE", cls.reaper_max_age),
             max_attempts=_int(env, "MAX_ATTEMPTS", cls.max_attempts),
+            hwaccel=_parse_hwaccel(env.get("HWACCEL")),
         )
 
     def queue_keys(self) -> list[str]:
-        return [f"queue:{operation}" for operation in self.worker_queues]
+        """BLPOP key order: every high-priority queue first, then every normal queue."""
+        high = [f"queue:{operation}:high" for operation in self.worker_queues]
+        normal = [f"queue:{operation}" for operation in self.worker_queues]
+        return high + normal
 
     def threads_per_job(self) -> int:
         cpu_count = os.process_cpu_count() or 1

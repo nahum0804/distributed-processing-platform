@@ -155,7 +155,26 @@ def test_coordinator_url_trailing_slash_stripped():
 
 def test_queue_keys_order():
     s = Settings.from_env({"WORKER_QUEUES": "generate_thumbnail,transcode_video"})
-    assert s.queue_keys() == ["queue:generate_thumbnail", "queue:transcode_video"]
+    assert s.queue_keys() == [
+        "queue:generate_thumbnail:high", "queue:transcode_video:high",
+        "queue:generate_thumbnail", "queue:transcode_video",
+    ]
+
+
+def test_hwaccel_default_none_and_empty_is_none():
+    assert Settings.from_env({}).hwaccel is None
+    assert Settings.from_env({"HWACCEL": ""}).hwaccel is None
+    assert Settings.from_env({"HWACCEL": "  "}).hwaccel is None
+
+
+@pytest.mark.parametrize("raw", ["nvenc", "NVENC", " Nvenc "])
+def test_hwaccel_nvenc_case_insensitive(raw):
+    assert Settings.from_env({"HWACCEL": raw}).hwaccel == "nvenc"
+
+
+def test_hwaccel_invalid_raises_naming_value():
+    with pytest.raises(ValueError, match="cuda"):
+        Settings.from_env({"HWACCEL": "cuda"})
 
 
 def test_threads_per_job(monkeypatch):
@@ -182,3 +201,18 @@ def test_make_redis_builds_client():
     assert kwargs["port"] == 6379
     assert kwargs["password"] == "pw"
     assert kwargs["decode_responses"] is True
+
+
+def test_from_env_strips_windows_line_endings():
+    s = Settings.from_env({
+        "REDIS_HOST": "192.168.1.10\r",
+        "MINIO_ACCESS_KEY": "minioadmin\r",
+        "REDIS_PASSWORD": "\r",
+        "WORKER_QUEUES": "transcode_video,extract_audio\r",
+        "WORKER_CONCURRENCY": "2\r",
+    })
+    assert s.redis_host == "192.168.1.10"
+    assert s.minio_access_key == "minioadmin"
+    assert s.redis_password is None
+    assert s.worker_queues == ("transcode_video", "extract_audio")
+    assert s.worker_concurrency == 2

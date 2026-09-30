@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 FLUSH_INTERVAL = 15.0
 MAX_BACKOFF = 30.0
+TERMINAL_SUBTASK_STATES = ("completed", "failed", "cancelled")
 
 
 class Worker:
@@ -186,31 +187,71 @@ class Worker:
             return None
         return subtask_id if isinstance(subtask_id, str) and subtask_id else None
 
+    def _claim_subtask(self, subtask_id: str) -> tuple[str, dict | None, int]:
+        """Atomically marks the subtask assigned and moves its case to processing (WATCH/MULTI).
+
+        Returns (outcome, subtask data, attempts) with outcome in
+        "claimed" | "missing" | "terminal" | "case_cancelled".
+        """
+        subtask_key = f"subtask:{subtask_id}"
+
+        def txn(pipe):
+            data = pipe.hgetall(subtask_key)
+            if not data:
+                return "missing", None, 0
+            if data.get("status") in TERMINAL_SUBTASK_STATES:
+                return "terminal", data, 0
+
+            case_id = data.get("case_id")
+            case_key = f"case:{case_id}"
+            case_status = pipe.hget(case_key, "status") if case_id else None
+            case_started = pipe.hexists(case_key, "started_at") if case_id else True
+
+            pipe.multi()
+            if case_status == "cancelled":
+                pipe.hset(subtask_key, "status", "cancelled")
+                return "case_cancelled", data, 0
+
+            assigned_at = datetime.now(timezone.utc).isoformat()
+            pipe.hset(
+                subtask_key,
+                mapping={
+                    "status": "assigned",
+                    "worker_id": self.settings.worker_id,
+                    "assigned_at": assigned_at,
+                    "assigned_ts": time.time(),
+                },
+            )
+            pipe.hincrby(subtask_key, "attempts", 1)
+            pipe.sadd(self._inflight_key, subtask_id)
+            if case_status in ("queued", "retrying"):
+                case_update = {"status": "processing"}
+                if not case_started:
+                    case_update["started_at"] = assigned_at
+                pipe.hset(case_key, mapping=case_update)
+            data["assigned_at"] = assigned_at
+            return "claimed", data, int(data.get("attempts") or 0) + 1
+
+        watches = [subtask_key]
+        case_id = self.redis.hget(subtask_key, "case_id")
+        if case_id:
+            watches.append(f"case:{case_id}")
+        return self.redis.transaction(txn, *watches, value_from_callable=True)
+
     def handle_subtask(self, subtask_id: str) -> dict | None:
         subtask_key = f"subtask:{subtask_id}"
-        data = self.redis.hgetall(subtask_key)
-        if not data:
+        outcome, data, attempts = self._claim_subtask(subtask_id)
+        if outcome == "missing":
             logger.warning("subtarea %s no encontrada", subtask_id)
             return None
-        if data.get("status") in ("completed", "failed"):
-            logger.info("subtarea %s ya terminal, se omite", subtask_id)
+        if outcome == "terminal":
+            logger.info("subtarea %s ya terminal (%s), se omite", subtask_id, data.get("status"))
+            return None
+        if outcome == "case_cancelled":
+            logger.info("caso %s cancelado, subtarea %s marcada cancelada", data.get("case_id"), subtask_id)
             return None
 
-        assigned_at = datetime.now(timezone.utc).isoformat()
-        pipe = self.redis.pipeline()
-        pipe.hset(
-            subtask_key,
-            mapping={
-                "status": "assigned",
-                "worker_id": self.settings.worker_id,
-                "assigned_at": assigned_at,
-                "assigned_ts": time.time(),
-            },
-        )
-        pipe.hincrby(subtask_key, "attempts", 1)
-        pipe.sadd(self._inflight_key, subtask_id)
-        results = pipe.execute()
-        attempts = results[1]
+        assigned_at = data["assigned_at"]
 
         self.stats.task_started()
         started_monotonic = time.monotonic()
@@ -234,6 +275,12 @@ class Worker:
             self.redis.hset(subtask_key, mapping={"status": "running", "started_at": started_at, "progress": 0})
 
             params = self._parse_params(data.get("params"), subtask_id)
+            if (
+                self.settings.hwaccel
+                and data["operation"] == "transcode_video"
+                and "hwaccel" not in params
+            ):
+                params["hwaccel"] = self.settings.hwaccel
             on_progress = self._make_progress_callback(subtask_key)
 
             result = self.processor.process(

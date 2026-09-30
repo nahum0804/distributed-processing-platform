@@ -370,6 +370,7 @@ def render_readme(manifest: dict, cases: dict) -> str:
     kinds = Counter(c["kind"] for c in cases["cases"])
     crit = Counter(c["criterion"] for c in cases["cases"])
     total_subs = sum(len(c["subtasks"]) for c in cases["cases"])
+    sizes = [len(c["subtasks"]) for c in cases["cases"]]
     lines = [
         "# Dataset multimedia de pruebas", "",
         f"Generado: {manifest['generated_at']} (semilla {manifest['seed']}).", "",
@@ -397,7 +398,7 @@ def render_readme(manifest: dict, cases: dict) -> str:
         "rotando operaciones validas para cada tipo.",
         f"- Casos por usuario (`user`): {crit['user']} casos con `task_type: \"auto\"`.",
         f"- Total: {len(cases['cases'])} casos ({kinds['homogeneous']} homogeneos, "
-        f"{kinds['heterogeneous']} heterogeneos), {total_subs} sub-tareas, de {CASE_MIN} a {CASE_MAX} por caso.",
+        f"{kinds['heterogeneous']} heterogeneos), {total_subs} sub-tareas, de {min(sizes, default=0)} a {max(sizes, default=0)} por caso.",
         "- Los archivos problematicos (bytes aleatorios, mp4 sin video, mp4 sin audio, ~3 %) van incluidos "
         "para que aparezcan casos `partially_completed`.", "",
         "## Regenerar", "",

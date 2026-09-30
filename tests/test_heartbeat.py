@@ -184,3 +184,18 @@ def test_explicit_gpu_info_bypasses_detection():
     data = _gpu_beat(processor=proc, gpu_info={"nvenc": True, "gpu_name": "GTX"})
     assert data["gpu"] == "GTX"
     assert data["nvenc_ok"] == "1"
+
+
+def test_beat_publishes_hwaccel_none_by_default():
+    redis_client = fakeredis.FakeRedis(decode_responses=True)
+    hb = Heartbeat(make_settings(), redis_client, WorkerStats(), threading.Event(), ffmpeg_info=("v", "none"))
+    hb.beat()
+    assert redis_client.hgetall("worker:w1")["hwaccel"] == "none"
+
+
+def test_beat_publishes_hwaccel_nvenc():
+    redis_client = fakeredis.FakeRedis(decode_responses=True)
+    hb = Heartbeat(make_settings(HWACCEL="nvenc"), redis_client, WorkerStats(), threading.Event(),
+                   ffmpeg_info=("v", "none"))
+    hb.beat()
+    assert redis_client.hgetall("worker:w1")["hwaccel"] == "nvenc"

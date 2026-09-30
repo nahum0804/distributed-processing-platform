@@ -12,10 +12,39 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 ACTIVE_STATES = ("assigned", "running")
+RETRYABLE_CASE_STATES = ("queued", "processing", "retrying")
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _requeue(redis_client, sid: str, case_id: str | None, operation: str, priority: str | None, reason: str) -> str:
+    """Requeues the subtask and flags its case as retrying in one WATCH/MULTI transaction."""
+    subtask_key = f"subtask:{sid}"
+    case_key = f"case:{case_id or ''}"
+    queue_key = f"queue:{operation}:high" if priority == "high" else f"queue:{operation}"
+
+    def txn(pipe):
+        case_status = pipe.hget(case_key, "status") if case_id else None
+        pipe.multi()
+        if case_status == "cancelled":
+            pipe.hset(subtask_key, "status", "cancelled")
+            return "cleaned"
+        pipe.hset(subtask_key, mapping={
+            "status": "pending",
+            "worker_id": "",
+            "progress": 0,
+            "requeued_at": _now_iso(),
+            "requeue_reason": reason,
+        })
+        pipe.lpush(queue_key, sid)
+        if case_status in RETRYABLE_CASE_STATES:
+            pipe.hset(case_key, "status", "retrying")
+            pipe.hincrby(case_key, "retries", 1)
+        return "requeued"
+
+    return redis_client.transaction(txn, case_key, value_from_callable=True)
 
 
 def recover_subtask(redis_client, settings, reporter, sid: str, reason: str, reporter_host: str = "reaper") -> str:
@@ -23,6 +52,12 @@ def recover_subtask(redis_client, settings, reporter, sid: str, reason: str, rep
     data = redis_client.hgetall(f"subtask:{sid}")
     status = data.get("status") if data else None
     if not data or status not in ACTIVE_STATES:
+        return "cleaned"
+
+    case_id = data.get("case_id")
+    if case_id and redis_client.hget(f"case:{case_id}", "status") == "cancelled":
+        redis_client.hset(f"subtask:{sid}", "status", "cancelled")
+        logger.info("caso %s cancelado, subtarea %s marcada cancelada (%s)", case_id, sid, reason)
         return "cleaned"
 
     attempts = int(data.get("attempts") or 0)
@@ -33,24 +68,18 @@ def recover_subtask(redis_client, settings, reporter, sid: str, reason: str, rep
             logger.error("subtarea %s sin operation, no se puede reencolar", sid)
             return "skipped"
         try:
-            pipe = redis_client.pipeline()
-            pipe.hset(f"subtask:{sid}", mapping={
-                "status": "pending",
-                "worker_id": "",
-                "progress": 0,
-                "requeued_at": _now_iso(),
-                "requeue_reason": reason,
-            })
-            pipe.lpush(f"queue:{operation}", sid)
-            pipe.execute()
+            outcome = _requeue(redis_client, sid, case_id, operation, data.get("priority"), reason)
+        except Exception:
+            logger.exception("no se pudo reencolar subtarea %s", sid)
+            return "skipped"
+        if outcome == "requeued":
             logger.warning(
                 "subtarea %s (operation=%s) reencolada tras %d intentos (%s)",
                 sid, operation, attempts, reason,
             )
-            return "requeued"
-        except Exception:
-            logger.exception("no se pudo reencolar subtarea %s", sid)
-            return "skipped"
+        else:
+            logger.info("caso %s cancelado, subtarea %s marcada cancelada (%s)", case_id, sid, reason)
+        return outcome
 
     payload = {
         "subtask_id": sid,

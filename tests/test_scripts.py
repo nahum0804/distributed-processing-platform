@@ -106,6 +106,30 @@ def test_build_case_payload_empty():
     assert submit_case.build_case_payload([]) == {"subtasks": []}
 
 
+def test_build_case_payload_priority_metadata_and_params():
+    payload = submit_case.build_case_payload(
+        [("a.mp4", "transcode_video"), ("b.mp3", "convert_audio")],
+        priority="high",
+        metadata={"name": "caso"},
+        subtask_metadata=[{"event": "boda"}, None],
+        subtask_params=[{"crf": 28}, None],
+    )
+    assert payload == {
+        "priority": "high",
+        "metadata": {"name": "caso"},
+        "subtasks": [
+            {"task_type": "transcode_video", "file_path": "a.mp4", "params": {"crf": 28}, "metadata": {"event": "boda"}},
+            {"task_type": "convert_audio", "file_path": "b.mp3", "params": None},
+        ],
+    }
+
+
+@pytest.mark.parametrize("status", ["completed", "partially_completed", "failed", "cancelled"])
+def test_finished_statuses_are_terminal(status):
+    assert status in submit_case.FINISHED_STATUSES
+    assert not {"queued", "processing", "retrying"} & submit_case.FINISHED_STATUSES
+
+
 # --- submit_case: upload_plan uses injected storage ---
 
 def test_upload_plan_uses_injected_storage(tmp_path):
@@ -198,7 +222,59 @@ def test_submit_case_posts_payload_and_returns_json():
     assert result["case_id"] == "abc"
     sent = responses.calls[0].request
     assert sent.url == f"{COORD}/cases"
-    assert json.loads(sent.body) == {"subtasks": [{"task_type": "transcode_video", "file_path": "k", "params": None}]}
+    assert json.loads(sent.body) == {
+        "priority": "normal",
+        "subtasks": [{"task_type": "transcode_video", "file_path": "k", "params": None}],
+    }
+
+
+@responses.activate
+def test_submit_case_sends_priority():
+    responses.add(responses.POST, f"{COORD}/cases", json={"case_id": "abc"}, status=201)
+
+    submit_case.submit_case(COORD, [("k", "extract_metadata")], priority="high")
+
+    assert json.loads(responses.calls[0].request.body)["priority"] == "high"
+
+
+@pytest.mark.parametrize("status", ["cancelled", "failed"])
+@responses.activate
+def test_poll_case_stops_on_new_terminal_statuses(status):
+    responses.add(responses.GET, f"{COORD}/cases/c", json=case_body("c", status, ["failed", "pending"]))
+    _, fake_sleep, fake_now = make_clock()
+
+    result = submit_case.poll_case(COORD, "c", 1.0, 30.0, sleep=fake_sleep, now=fake_now)
+
+    assert result["status"] == status
+    assert result["_timed_out"] is False
+
+
+@responses.activate
+def test_poll_case_retrying_is_not_terminal():
+    responses.add(responses.GET, f"{COORD}/cases/c", json=case_body("c", "retrying", ["pending"]))
+    _, fake_sleep, fake_now = make_clock()
+
+    result = submit_case.poll_case(COORD, "c", 5.0, 9.0, sleep=fake_sleep, now=fake_now)
+
+    assert result["_timed_out"] is True
+
+
+@responses.activate
+def test_cancel_case_ok():
+    body = {"case_id": "c1", "status": "cancelled", "cancelled_subtasks": 3, "running_subtasks": 1}
+    responses.add(responses.POST, f"{COORD}/cases/c1/cancel", json=body)
+
+    assert submit_case.cancel_case(COORD, "c1") == body
+
+
+@pytest.mark.parametrize("code", [404, 409])
+@responses.activate
+def test_cancel_case_http_errors_return_none(code, capsys):
+    responses.add(responses.POST, f"{COORD}/cases/c1/cancel", json={"detail": "nope"}, status=code)
+
+    assert submit_case.cancel_case(COORD, "c1") is None
+    out = capsys.readouterr().out
+    assert str(code) in out and "nope" in out
 
 
 # --- submit_case: report ---
@@ -221,6 +297,30 @@ def test_fetch_report_and_print(capsys):
     assert "1 de 2 completadas" in out
     assert "timeout=1" in out
     assert "h1=1.50" in out
+
+
+def test_print_report_shows_priority_and_totals_by_type_and_operation(capsys):
+    submit_case.print_report("c1", {
+        "summary": "ok",
+        "priority": "high",
+        "totals_by_type_and_operation": {
+            "video": {"transcode_video": {"completed": 3, "failed": 1}, "extract_metadata": 2},
+            "audio": {"convert_audio": {"completed": 4}},
+        },
+    })
+
+    out = capsys.readouterr().out
+    assert "[prioridad high]" in out
+    assert "video/transcode_video=completed:3,failed:1" in out
+    assert "video/extract_metadata=2" in out
+    assert "audio/convert_audio=completed:4" in out
+
+
+def test_print_report_without_new_fields_is_quiet(capsys):
+    submit_case.print_report("c1", {"summary": "ok"})
+
+    out = capsys.readouterr().out
+    assert "por tipo/operacion" not in out and "prioridad" not in out
 
 
 @responses.activate
@@ -330,6 +430,96 @@ def test_main_timeout_exit_2(monkeypatch, media_dir):
     responses.add(responses.GET, f"{COORD}/cases/cid", json=case_body("cid", "processing", ["pending", "pending"]))
 
     assert run_main(monkeypatch, media_dir, "--mode", "auto", "--timeout", "0") == 2
+
+
+@responses.activate
+def test_main_sends_priority_high(monkeypatch, media_dir):
+    add_happy_path()
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto", "--priority", "high") == 0
+
+    assert json.loads(responses.calls[0].request.body)["priority"] == "high"
+
+
+@responses.activate
+def test_main_default_priority_is_normal(monkeypatch, media_dir):
+    add_happy_path()
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto") == 0
+
+    assert json.loads(responses.calls[0].request.body)["priority"] == "normal"
+
+
+def test_main_rejects_invalid_priority(monkeypatch, media_dir):
+    with pytest.raises(SystemExit):
+        run_main(monkeypatch, media_dir, "--priority", "urgente")
+
+
+@responses.activate
+def test_main_cancel_after_cancels_and_exits_0(monkeypatch, media_dir, capsys):
+    slept = []
+    monkeypatch.setattr(submit_case.time, "sleep", slept.append)
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "cid", "status": "queued", "total_subtasks": 2, "subtask_ids": [], "created_at": "x"},
+        status=201,
+    )
+    responses.add(
+        responses.POST, f"{COORD}/cases/cid/cancel",
+        json={"case_id": "cid", "status": "cancelled", "cancelled_subtasks": 2, "running_subtasks": 0},
+    )
+    responses.add(responses.GET, f"{COORD}/cases/cid", json=case_body("cid", "cancelled", ["failed", "failed"]))
+    responses.add(responses.GET, f"{COORD}/cases/cid/report", json={"summary": "cancelado", "priority": "normal"})
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto", "--cancel-after", "3") == 0
+
+    assert 3.0 in slept
+    out = capsys.readouterr().out
+    assert "Cancelado cid: estado=cancelled canceladas=2 en_ejecucion=0" in out
+    assert "cid cancelled 0/2/2" in out
+
+
+@responses.activate
+def test_main_cancel_conflict_does_not_fail(monkeypatch, media_dir, capsys):
+    monkeypatch.setattr(submit_case.time, "sleep", lambda s: None)
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "cid", "status": "queued", "total_subtasks": 2, "subtask_ids": [], "created_at": "x"},
+        status=201,
+    )
+    responses.add(responses.POST, f"{COORD}/cases/cid/cancel", json={"detail": "ya terminado"}, status=409)
+    responses.add(responses.GET, f"{COORD}/cases/cid", json=case_body("cid", "completed", ["completed", "completed"]))
+    responses.add(responses.GET, f"{COORD}/cases/cid/report", json={"summary": "ok"})
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto", "--cancel-after", "0") == 0
+    assert "409" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("status", ["failed", "cancelled"])
+@responses.activate
+def test_main_failed_or_cancelled_case_exits_0(monkeypatch, media_dir, status):
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "cid", "status": "queued", "total_subtasks": 2, "subtask_ids": [], "created_at": "x"},
+        status=201,
+    )
+    responses.add(responses.GET, f"{COORD}/cases/cid", json=case_body("cid", status, ["failed", "failed"]))
+    responses.add(responses.GET, f"{COORD}/cases/cid/report", json={"summary": "x"})
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto") == 0
+
+
+@responses.activate
+def test_main_http_error_while_polling_exits_1(monkeypatch, media_dir, capsys):
+    responses.add(
+        responses.POST, f"{COORD}/cases",
+        json={"case_id": "cid", "status": "queued", "total_subtasks": 2, "subtask_ids": [], "created_at": "x"},
+        status=201,
+    )
+    responses.add(responses.GET, f"{COORD}/cases/cid", json={"detail": "boom"}, status=500)
+
+    assert run_main(monkeypatch, media_dir, "--mode", "auto") == 1
+    assert "500" in capsys.readouterr().out
 
 
 # --- seed_minio ---
@@ -541,3 +731,52 @@ def test_worker_compose_has_stop_grace_period():
     compose = _load_compose("deploy/docker-compose.worker.yml")
     worker = compose["services"]["worker"]
     assert "stop_grace_period" in worker
+
+
+def test_worker_compose_grace_period_covers_max_ffmpeg_timeout():
+    compose = _load_compose("deploy/docker-compose.worker.yml")
+    grace = compose["services"]["worker"]["stop_grace_period"]
+    match = re.fullmatch(r"(\d+)([smh])", str(grace))
+    assert match, grace
+    seconds = int(match.group(1)) * {"s": 1, "m": 60, "h": 3600}[match.group(2)]
+    assert seconds >= 30 * 60
+
+
+def test_worker_gpu_override_requests_nvenc_and_gpu_device():
+    compose = _load_compose("deploy/docker-compose.worker-gpu.yml")
+    worker = compose["services"]["worker"]
+    env = worker["environment"]
+    if isinstance(env, list):
+        env = dict(item.split("=", 1) for item in env)
+    assert env["HWACCEL"] == "nvenc"
+    assert "video" in env["NVIDIA_DRIVER_CAPABILITIES"].split(",")
+    devices = worker["deploy"]["resources"]["reservations"]["devices"]
+    assert any(
+        d["driver"] == "nvidia" and "video" in d["capabilities"] and "gpu" in d["capabilities"]
+        for d in devices
+    )
+
+
+def test_check_env_file_warns_crlf_empty_password_and_localhost_in_container(tmp_path):
+    from scripts.check_connectivity import check_env_file
+
+    env = tmp_path / ".env"
+    env.write_bytes(b"REDIS_HOST=localhost\r\nREDIS_PASSWORD=\r\n")
+    settings = Settings.from_env({"REDIS_HOST": "localhost", "COORDINATOR_URL": "http://localhost:8000"})
+
+    warnings = check_env_file(settings, env_path=env, in_container=True)
+
+    assert any("CRLF" in w for w in warnings)
+    assert any("REDIS_PASSWORD" in w for w in warnings)
+    assert any("REDIS_HOST" in w and "COORDINATOR_URL" in w for w in warnings)
+
+
+def test_check_env_file_clean_setup_has_no_warnings(tmp_path):
+    from scripts.check_connectivity import check_env_file
+
+    env = tmp_path / ".env"
+    env.write_bytes(b"REDIS_HOST=192.168.1.10\nREDIS_PASSWORD=secreto\n")
+    settings = Settings.from_env({"REDIS_HOST": "192.168.1.10", "REDIS_PASSWORD": "secreto",
+                                  "COORDINATOR_URL": "http://192.168.1.10:8000", "MINIO_ENDPOINT": "192.168.1.10:9000"})
+
+    assert check_env_file(settings, env_path=env, in_container=True) == []

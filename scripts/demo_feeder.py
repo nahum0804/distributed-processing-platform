@@ -39,6 +39,13 @@ AUDIO_SPECS = [
     ("tono_e.m4a", 5, 880, ["-c:a", "aac"]),
 ]
 PROBLEM_NAMES = ("corrupto.mp4", "solo_audio.mp4", "sin_audio.mp4")
+HIGH_PRIORITY_FRACTION = 0.15
+CANCEL_FRACTION = 0.1
+# Demo cases finish in ~2 s, so cancel quickly or the case is already terminal (409).
+CANCEL_DELAY_RANGE = (0.2, 0.8)
+FAILED_CASE_FRACTION = 0.05
+# Each problem file paired with an operation it cannot satisfy, so the whole case ends failed.
+_FAILING_OPS = {"corrupto.mp4": "transcode_video", "solo_audio.mp4": "generate_thumbnail", "sin_audio.mp4": "extract_audio"}
 
 
 def default_runner(args: list[str]) -> None:
@@ -96,6 +103,10 @@ def pick_case(rng: random.Random, library: dict[str, list[str]]) -> tuple[dict, 
     kinds = [k for k, v in (("video", videos), ("audio", audios), ("mixed", videos and audios)) if v]
     if not kinds:
         raise ValueError("biblioteca vacia")
+    if problems and rng.random() < FAILED_CASE_FRACTION:
+        pairs = [(_key(n), _FAILING_OPS.get(n, "transcode_video")) for n in problems]
+        payload = build_case_payload(pairs, priority="normal", metadata={"source": "demo", "label": "solo-problemas"})
+        return payload, "solo-problemas"
     kind = rng.choice(kinds)
     if kind == "video":
         pairs = [(_key(n), "auto") for n in rng.sample(videos, min(len(videos), rng.randint(3, 6)))]
@@ -113,7 +124,10 @@ def pick_case(rng: random.Random, library: dict[str, list[str]]) -> tuple[dict, 
         op = "auto" if kind != "mixed" else rng.choice(OPERATIONS[:3])
         pairs.insert(rng.randint(0, len(pairs)), (_key(bad), op))
     rng.shuffle(pairs)
-    return build_case_payload(pairs), kind + ("+problema" if problematic else "")
+    label = kind + ("+problema" if problematic else "")
+    priority = "high" if rng.random() < HIGH_PRIORITY_FRACTION else "normal"
+    payload = build_case_payload(pairs, priority=priority, metadata={"source": "demo", "label": label})
+    return payload, label
 
 
 def upload_library(storage, out_dir: Path, library: dict[str, list[str]], bucket: str) -> dict[str, list[str]]:
@@ -143,20 +157,33 @@ def wait_ready(settings: Settings, session, storage, sleep=time.sleep, stop: thr
     return False
 
 
-def submit(settings: Settings, session, payload: dict, label: str) -> bool:
+def submit(settings: Settings, session, payload: dict, label: str) -> dict | None:
     try:
         resp = session.post(f"{settings.coordinator_url}/cases", json=payload, timeout=10)
         resp.raise_for_status()
         data = resp.json()
     except (requests.RequestException, ValueError) as e:
         logger.warning("error al enviar caso: %s", e)
+        return None
+    logger.info("caso %s enviado: %d sub-tareas (%s, prioridad %s)", data.get("case_id", "?"),
+                len(payload["subtasks"]), label, payload.get("priority", "normal"))
+    return data
+
+
+def cancel(settings: Settings, session, case_id: str) -> bool:
+    try:
+        resp = session.post(f"{settings.coordinator_url}/cases/{case_id}/cancel", timeout=10)
+        resp.raise_for_status()
+    except (requests.RequestException, ValueError) as e:
+        logger.info("no se pudo cancelar %s: %s", case_id, e)
         return False
-    logger.info("caso %s enviado: %d sub-tareas (%s)", data.get("case_id", "?"), len(payload["subtasks"]), label)
+    logger.info("caso %s cancelado", case_id)
     return True
 
 
 def run(settings, session, storage, rng, sleep=time.sleep, max_cases: int = 0, interval: float = 8.0,
-        library=None, out_dir: Path | None = None, stop: threading.Event | None = None, runner=default_runner) -> int:
+        library=None, out_dir: Path | None = None, stop: threading.Event | None = None, runner=default_runner,
+        cancel_fraction: float = CANCEL_FRACTION, timer_factory=threading.Timer) -> int:
     stop = stop or threading.Event()
     if not wait_ready(settings, session, storage, sleep, stop):
         return 0
@@ -177,8 +204,15 @@ def run(settings, session, storage, rng, sleep=time.sleep, max_cases: int = 0, i
             except ValueError as e:
                 logger.error("%s", e)
                 return sent
-            if submit(settings, session, payload, label):
-                sent += 1
+            data = submit(settings, session, payload, label)
+            if data is None:
+                continue
+            sent += 1
+            case_id = data.get("case_id")
+            if case_id and rng.random() < cancel_fraction:
+                timer = timer_factory(rng.uniform(*CANCEL_DELAY_RANGE), cancel, args=(settings, session, case_id))
+                timer.daemon = True
+                timer.start()
         if max_cases > 0 and sent >= max_cases:
             break
         sleep(max(0.1, interval * rng.uniform(0.7, 1.3)))

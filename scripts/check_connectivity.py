@@ -78,6 +78,34 @@ def check_work_dir(work_dir: Path) -> tuple[bool, str]:
         return False, f"WORK_DIR no escribible ({work_dir}): {e}"
 
 
+_LOCAL_HOSTS = ("localhost", "127.0.0.1")
+
+
+def check_env_file(settings: Settings, env_path: Path = Path(".env"), in_container: bool | None = None) -> list[str]:
+    """Warnings about common .env mistakes; never fatal."""
+    warnings: list[str] = []
+    if env_path.exists():
+        raw = env_path.read_bytes()
+        if b"\r\n" in raw:
+            warnings.append(f"{env_path} tiene finales de linea de Windows (CRLF); conviene guardarlo con LF")
+    if not settings.redis_password:
+        warnings.append("REDIS_PASSWORD esta vacio: el docker-compose de la maquina A lo exige y Redis quedaria sin clave en la red")
+    if in_container is None:
+        in_container = Path("/.dockerenv").exists()
+    if in_container:
+        local = [name for name, value in (
+            ("REDIS_HOST", settings.redis_host),
+            ("COORDINATOR_URL", settings.coordinator_url),
+            ("MINIO_ENDPOINT", settings.minio_endpoint),
+        ) if any(h in value for h in _LOCAL_HOSTS)]
+        if local:
+            warnings.append(
+                f"{', '.join(local)} apuntan a localhost, pero dentro de un contenedor eso es el propio contenedor; "
+                "usar la IP de la maquina A (o host.docker.internal si el worker corre en la maquina A)"
+            )
+    return warnings
+
+
 def config_summary(settings: Settings) -> str:
     return (
         f"worker_id={settings.worker_id} "
@@ -103,6 +131,9 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = Settings.from_env()
     print(f"Config: {config_summary(settings)}")
+
+    for warning in check_env_file(settings):
+        print(_line("WARN", "env", warning))
 
     any_fail = False
 

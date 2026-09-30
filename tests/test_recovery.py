@@ -144,3 +144,96 @@ def test_missing_operation_is_skipped_and_untouched(redis_client):
     data = redis_client.hgetall("subtask:sid-bad")
     assert data["status"] == "assigned"
     assert reporter.reported == []
+
+
+def test_requeue_sets_case_retrying_and_increments_retries(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "processing", "retries": "0"})
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+
+    result = recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+
+    assert result == "requeued"
+    assert redis_client.hget("case:case-1", "status") == "retrying"
+    assert redis_client.hget("case:case-1", "retries") == "1"
+
+
+def test_requeue_increments_retries_on_each_requeue(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "retrying", "retries": "1"})
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+    make_subtask(redis_client, "sid-2", status="running", attempts=1)
+
+    recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+    recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-2", "max_age")
+
+    assert redis_client.hget("case:case-1", "status") == "retrying"
+    assert redis_client.hget("case:case-1", "retries") == "3"
+
+
+@pytest.mark.parametrize("case_status", ["completed", "partially_completed", "failed"])
+def test_requeue_leaves_terminal_case_untouched(redis_client, case_status):
+    redis_client.hset("case:case-1", mapping={"status": case_status, "retries": "2"})
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+
+    result = recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+
+    assert result == "requeued"
+    assert redis_client.hget("case:case-1", "status") == case_status
+    assert redis_client.hget("case:case-1", "retries") == "2"
+
+
+def test_requeue_with_missing_case_hash_creates_nothing(redis_client):
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+
+    result = recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+
+    assert result == "requeued"
+    assert redis_client.exists("case:case-1") == 0
+
+
+def test_failure_report_does_not_touch_case(redis_client):
+    redis_client.hset("case:case-1", mapping={"status": "processing", "retries": "0"})
+    make_subtask(redis_client, "sid-1", status="running", attempts=3)
+
+    result = recover_subtask(redis_client, make_settings(max_attempts=3), FakeReporter(), "sid-1", "max_age")
+
+    assert result == "failed"
+    assert redis_client.hget("case:case-1", "status") == "processing"
+    assert redis_client.hget("case:case-1", "retries") == "0"
+
+
+@pytest.mark.parametrize("attempts", [1, 3])
+def test_cancelled_case_marks_subtask_cancelled_and_does_not_requeue(redis_client, attempts):
+    redis_client.hset("case:case-1", mapping={"status": "cancelled", "retries": "0"})
+    make_subtask(redis_client, "sid-1", status="running", attempts=attempts)
+
+    reporter = FakeReporter()
+    result = recover_subtask(redis_client, make_settings(max_attempts=3), reporter, "sid-1", "worker_lost")
+
+    assert result == "cleaned"
+    assert redis_client.hget("subtask:sid-1", "status") == "cancelled"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []
+    assert reporter.reported == []
+    assert redis_client.hget("case:case-1", "status") == "cancelled"
+    assert redis_client.hget("case:case-1", "retries") == "0"
+
+
+def test_high_priority_subtask_requeued_to_high_queue(redis_client):
+    redis_client.rpush("queue:transcode_video:high", "existing-high")
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+    redis_client.hset("subtask:sid-1", "priority", "high")
+
+    result = recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+
+    assert result == "requeued"
+    assert redis_client.lrange("queue:transcode_video:high", 0, -1) == ["sid-1", "existing-high"]
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []
+
+
+def test_normal_priority_subtask_requeued_to_normal_queue(redis_client):
+    make_subtask(redis_client, "sid-1", status="running", attempts=1)
+    redis_client.hset("subtask:sid-1", "priority", "normal")
+
+    recover_subtask(redis_client, make_settings(), FakeReporter(), "sid-1", "max_age")
+
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == ["sid-1"]
+    assert redis_client.lrange("queue:transcode_video:high", 0, -1) == []

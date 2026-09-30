@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+from pathlib import Path
 
 import fakeredis
 import pytest
@@ -237,6 +238,72 @@ def test_invalid_params_json_falls_back_to_empty_dict(tmp_path):
     assert processor.calls[-1]["params"] == {}
 
 
+def test_hwaccel_passed_only_to_transcode_video(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path, HWACCEL="nvenc")
+    seed_subtask(redis_client, storage, "sid-v", operation="transcode_video", params={"crf": 23})
+    seed_subtask(redis_client, storage, "sid-a", operation="extract_audio", params={"bitrate": "128k"})
+    seed_subtask(redis_client, storage, "sid-t", operation="generate_thumbnail")
+
+    for sid in ("sid-v", "sid-a", "sid-t"):
+        assert worker.handle_subtask(sid)["status"] == "completed"
+
+    by_op = {c["operation"]: c["params"] for c in processor.calls}
+    assert by_op["transcode_video"] == {"crf": 23, "hwaccel": "nvenc"}
+    assert "hwaccel" not in by_op["extract_audio"]
+    assert "hwaccel" not in by_op["generate_thumbnail"]
+
+
+def test_hwaccel_not_set_leaves_params_untouched(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1", operation="transcode_video", params={"crf": 23})
+
+    worker.handle_subtask("sid1")
+
+    assert processor.calls[-1]["params"] == {"crf": 23}
+
+
+def test_explicit_params_hwaccel_wins_over_settings(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path, HWACCEL="nvenc")
+    seed_subtask(redis_client, storage, "sid1", operation="transcode_video", params={"hwaccel": "none"})
+
+    worker.handle_subtask("sid1")
+
+    assert processor.calls[-1]["params"] == {"hwaccel": "none"}
+
+
+def test_high_priority_queue_of_lower_priority_operation_goes_first(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(
+        tmp_path, WORKER_QUEUES="transcode_video,extract_audio",
+    )
+    seed_subtask(redis_client, storage, "sid-normal", operation="transcode_video")
+    seed_subtask(redis_client, storage, "sid-high", operation="extract_audio")
+    redis_client.lrem("queue:extract_audio", 0, "sid-high")
+    redis_client.rpush("queue:extract_audio:high", "sid-high")
+
+    assert worker.poll_once(timeout=1) is True
+    assert worker.poll_once(timeout=1) is True
+
+    assert [c["operation"] for c in processor.calls] == ["extract_audio", "transcode_video"]
+
+
+def test_queue_order_preserved_within_each_tier(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(
+        tmp_path, WORKER_QUEUES="transcode_video,extract_audio",
+    )
+    for sid, op in (("n-v", "transcode_video"), ("n-a", "extract_audio")):
+        seed_subtask(redis_client, storage, sid, operation=op)
+    for sid, op in (("h-v", "transcode_video"), ("h-a", "extract_audio")):
+        seed_subtask(redis_client, storage, sid, operation=op)
+        redis_client.lrem(f"queue:{op}", 0, sid)
+        redis_client.rpush(f"queue:{op}:high", sid)
+
+    for _ in range(4):
+        assert worker.poll_once(timeout=1) is True
+
+    order = [Path(c["src"]).parent.parent.name for c in processor.calls]
+    assert order == ["h-v", "h-a", "n-v", "n-a"]
+
+
 def test_terminal_status_is_skipped(tmp_path):
     worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
     seed_subtask(redis_client, storage, "sid1")
@@ -464,3 +531,113 @@ def test_poll_discards_invalid_queue_item_without_crashing(tmp_path, raw):
 
     assert processor.calls == []
     assert reporter.calls == []
+
+
+def observe_case_status_during_processing(redis_client_holder, case_id="c1"):
+    seen = {}
+
+    def check(call_kwargs):
+        seen["case_status"] = redis_client_holder["redis"].hget(f"case:{case_id}", "status")
+
+    return seen, check
+
+
+@pytest.mark.parametrize("initial", ["queued", "retrying"])
+def test_case_moves_to_processing_on_assignment(tmp_path, initial):
+    holder = {}
+    seen, check = observe_case_status_during_processing(holder)
+    worker, redis_client, storage, processor, reporter = make_worker(
+        tmp_path, processor=make_fake_processor(outcome=check),
+    )
+    holder["redis"] = redis_client
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("case:c1", mapping={"status": initial, "retries": "0"})
+
+    worker.handle_subtask("sid1")
+
+    assert seen["case_status"] == "processing"
+    assert redis_client.hget("case:c1", "status") == "processing"
+    assert redis_client.hget("case:c1", "started_at")
+
+
+def test_case_started_at_not_overwritten_on_retrying(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("case:c1", mapping={"status": "retrying", "started_at": "2026-01-01T00:00:00+00:00"})
+
+    worker.handle_subtask("sid1")
+
+    assert redis_client.hget("case:c1", "started_at") == "2026-01-01T00:00:00+00:00"
+
+
+@pytest.mark.parametrize("terminal", ["completed", "partially_completed", "failed", "processing"])
+def test_case_status_untouched_when_not_queued_or_retrying(tmp_path, terminal):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("case:c1", "status", terminal)
+
+    worker.handle_subtask("sid1")
+
+    assert redis_client.hget("case:c1", "status") == terminal
+    assert redis_client.hget("case:c1", "started_at") is None
+
+
+def test_missing_case_hash_is_noop(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+
+    payload = worker.handle_subtask("sid1")
+
+    assert payload["status"] == "completed"
+    assert redis_client.exists("case:c1") == 0
+
+
+def test_cancelled_subtask_is_skipped(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("subtask:sid1", "status", "cancelled")
+
+    assert worker.handle_subtask("sid1") is None
+
+    assert processor.calls == []
+    assert reporter.calls == []
+    assert redis_client.hget("subtask:sid1", "status") == "cancelled"
+    assert redis_client.hget("subtask:sid1", "attempts") is None
+
+
+def test_cancelled_case_marks_subtask_cancelled_without_report(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("case:c1", "status", "cancelled")
+
+    assert worker.handle_subtask("sid1") is None
+
+    assert processor.calls == []
+    assert reporter.calls == []
+    assert redis_client.hget("subtask:sid1", "status") == "cancelled"
+    assert redis_client.hget("case:c1", "status") == "cancelled"
+    assert redis_client.sismember("worker:w1:inflight", "sid1") == 0
+
+
+def test_cancelled_case_does_not_reopen_terminal_subtask(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_subtask(redis_client, storage, "sid1")
+    redis_client.hset("subtask:sid1", "status", "completed")
+    redis_client.hset("case:c1", "status", "cancelled")
+
+    assert worker.handle_subtask("sid1") is None
+
+    assert redis_client.hget("subtask:sid1", "status") == "completed"
+    assert reporter.calls == []
+
+
+def test_recover_own_inflight_cancelled_case_marks_subtask_cancelled(tmp_path):
+    worker, redis_client, storage, processor, reporter = make_worker(tmp_path)
+    seed_inflight_leftover(redis_client, "sid-left", status="running", worker_id="w1")
+    redis_client.hset("case:c1", "status", "cancelled")
+
+    counts = worker.recover_own_inflight()
+
+    assert counts == {"requeued": 0, "failed": 0, "cleaned": 1}
+    assert redis_client.hget("subtask:sid-left", "status") == "cancelled"
+    assert redis_client.lrange("queue:transcode_video", 0, -1) == []

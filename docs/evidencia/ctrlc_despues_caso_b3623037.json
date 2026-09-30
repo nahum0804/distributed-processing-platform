@@ -1,0 +1,118 @@
+{
+  "descripcion": "DESPUÉS de la corrección (commit 217817d): Ctrl+C durante un video de 5 min a 1080p; el worker terminó la sub-tarea en curso (completed, h264_nvenc) y salió limpio.",
+  "fuente": "GET http://192.168.50.16:8000/cases/b3623037-7a68-46f6-8235-463912bd309c/report y GET /subtasks/<id>",
+  "report": {
+    "case_id": "b3623037-7a68-46f6-8235-463912bd309c",
+    "status": "completed",
+    "created_at": "2026-09-30T03:47:14.815200+00:00",
+    "finished_at": "2026-09-30T03:47:48.707933+00:00",
+    "priority": "high",
+    "metadata": {},
+    "retries": 0,
+    "summary": "1 ok",
+    "totals": {
+      "total": 1,
+      "completed": 1,
+      "failed": 0,
+      "pending": 0
+    },
+    "failure_breakdown": {},
+    "avg_processing_s_by_operation": {
+      "transcode_video": 22.345
+    },
+    "avg_processing_s_by_host": {
+      "DESKTOP-796L2A2": 22.345
+    },
+    "subtasks_by_operation": {
+      "transcode_video": [
+        {
+          "subtask_id": "f4d747ec-839c-4b04-b430-9ac31353d4a0",
+          "file_path": "prueba-gpu-largo/largo_300s_1080p.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:47:30.452645+00:00",
+          "finished_at": "2026-09-30T03:47:48.700897+00:00",
+          "processing_s": 22.345,
+          "media_duration_s": 300.0,
+          "output_bytes": 404592230,
+          "outputs": [
+            "results/b3623037-7a68-46f6-8235-463912bd309c/f4d747ec-839c-4b04-b430-9ac31353d4a0/largo_300s_1080p.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "high",
+          "file_type": "video"
+        }
+      ]
+    },
+    "subtasks_by_type": {
+      "video": [
+        {
+          "subtask_id": "f4d747ec-839c-4b04-b430-9ac31353d4a0",
+          "file_path": "prueba-gpu-largo/largo_300s_1080p.mp4",
+          "status": "completed",
+          "worker_id": "worker-DESKTOP-796L2A2",
+          "host": "DESKTOP-796L2A2",
+          "started_at": "2026-09-30T03:47:30.452645+00:00",
+          "finished_at": "2026-09-30T03:47:48.700897+00:00",
+          "processing_s": 22.345,
+          "media_duration_s": 300.0,
+          "output_bytes": 404592230,
+          "outputs": [
+            "results/b3623037-7a68-46f6-8235-463912bd309c/f4d747ec-839c-4b04-b430-9ac31353d4a0/largo_300s_1080p.mp4"
+          ],
+          "error": null,
+          "error_type": null,
+          "attempts": 1,
+          "encoder": "h264_nvenc",
+          "metadata": {},
+          "priority": "high",
+          "file_type": "video"
+        }
+      ]
+    },
+    "totals_by_type_and_operation": {
+      "video": {
+        "transcode_video": {
+          "completed": 1,
+          "failed": 0,
+          "other": 0
+        }
+      }
+    }
+  },
+  "subtasks": [
+    {
+      "attempts": "1",
+      "processing_s": "22.345",
+      "metadata": {},
+      "priority": "high",
+      "assigned_ts": "1790740046.3553128",
+      "task_type": "transcode_video",
+      "host": "DESKTOP-796L2A2",
+      "output_bytes": "404592230",
+      "finished_at": "2026-09-30T03:47:48.700897+00:00",
+      "media_duration_s": "300.0",
+      "file_path": "prueba-gpu-largo/largo_300s_1080p.mp4",
+      "error_type": "",
+      "case_id": "b3623037-7a68-46f6-8235-463912bd309c",
+      "outputs": [
+        "results/b3623037-7a68-46f6-8235-463912bd309c/f4d747ec-839c-4b04-b430-9ac31353d4a0/largo_300s_1080p.mp4"
+      ],
+      "started_at": "2026-09-30T03:47:30.452645+00:00",
+      "worker_id": "worker-DESKTOP-796L2A2",
+      "progress": "100",
+      "operation": "transcode_video",
+      "error": "",
+      "status": "completed",
+      "encoder": "h264_nvenc",
+      "assigned_at": "2026-09-30T03:47:26.355300+00:00",
+      "subtask_id": "f4d747ec-839c-4b04-b430-9ac31353d4a0",
+      "params": {}
+    }
+  ]
+}

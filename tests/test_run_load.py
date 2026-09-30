@@ -221,7 +221,8 @@ def test_run_load_sends_priorities_and_metadata(tmp_path):
     bodies = []
     with responses.RequestsMock() as rsps:
         mock_api(rsps, bodies=bodies, stats={"queues": {"transcode_video": 3}})
-        rl.run_load(args_for(ds, high_fraction=0.5), settings(), redis_client=DownRedis(),
+        # concurrency=1: the mock hands out case ids in POST order, which must match case order here.
+        rl.run_load(args_for(ds, high_fraction=0.5, concurrency=1), settings(), redis_client=DownRedis(),
                     sleep=clock.sleep, clock=clock, stamp="p")
     assert sorted(b["priority"] for b in bodies) == ["high", "high", "normal", "normal"]
     assert all(b["metadata"]["kind"] in ("homogeneous", "heterogeneous") and b["metadata"]["name"] for b in bodies)
@@ -239,7 +240,8 @@ def test_duration_by_priority_table(tmp_path):
     durations = {f"id{i + 1}": (10 if p == "high" else 40) for i, p in enumerate(priorities)}
     with responses.RequestsMock() as rsps:
         mock_api(rsps, durations=durations, stats={"queues": {}})
-        rl.run_load(args_for(ds, high_fraction=0.5), settings(), redis_client=DownRedis(),
+        # concurrency=1: the mock hands out case ids in POST order, which must match case order here.
+        rl.run_load(args_for(ds, high_fraction=0.5, concurrency=1), settings(), redis_client=DownRedis(),
                     sleep=clock.sleep, clock=clock, stamp="d")
     data = json.loads((ds / "out" / "carga_d.json").read_text())
     by_p = data["metrics"]["duration_by_priority"]

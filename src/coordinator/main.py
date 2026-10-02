@@ -620,6 +620,22 @@ def get_subtask(subtask_id: str) -> dict:
     return data
 
 
+# ---------------------------------------------------------------------------
+# Redis error helpers
+# ---------------------------------------------------------------------------
+def _redis_unavailable(e: Exception) -> HTTPException:
+    """Convert a Redis connection error into a clean HTTP 503."""
+    logger.error("Redis no disponible: %s", e)
+    return HTTPException(
+        status_code=503,
+        detail=(
+            f"Redis no está disponible ({_REDIS_HOST}:{_REDIS_PORT}). "
+            "Inicia Redis antes de usar el coordinador. "
+            f"Detalle: {e}"
+        ),
+    )
+
+
 def _worker_entries() -> list[dict]:
     worker_ids = sorted(redis_client.smembers("workers:registry"))
     entries = []
@@ -629,35 +645,105 @@ def _worker_entries() -> list[dict]:
     return entries
 
 
+# ---------------------------------------------------------------------------
+# GET /health — diagnóstico rápido
+# ---------------------------------------------------------------------------
+@app.get("/health", response_model=dict, tags=["Dashboard"])
+def health_check() -> dict:
+    """Comprueba que el coordinador puede alcanzar Redis."""
+    try:
+        redis_client.ping()
+        return {"status": "ok", "redis": f"{_REDIS_HOST}:{_REDIS_PORT}"}
+    except redis_lib.exceptions.ConnectionError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Redis no disponible en {_REDIS_HOST}:{_REDIS_PORT} — {e}",
+        )
+
+
 @app.get("/workers", response_model=list, tags=["Dashboard"])
 def list_workers() -> list:
     """Workers from ``workers:registry``; ``alive`` = heartbeat key still exists."""
-    return _worker_entries()
+    try:
+        return _worker_entries()
+    except redis_lib.exceptions.ConnectionError as e:
+        raise _redis_unavailable(e)
 
 
 @app.get("/stats", response_model=dict, tags=["Dashboard"])
 def get_stats() -> dict:
     """Queue lengths, cases by status and worker liveness."""
-    queues: dict[str, int] = {}
-    for op in sorted(VALID_TASK_TYPES):
-        for key in (queue_key(op), queue_key(op, "high")):
-            queues[key] = redis_client.llen(key)
+    try:
+        queues: dict[str, int] = {}
+        for op in sorted(VALID_TASK_TYPES):
+            for key in (queue_key(op), queue_key(op, "high")):
+                queues[key] = redis_client.llen(key)
 
-    cases_by_status: dict[str, int] = defaultdict(int)
-    for cid in redis_client.smembers("cases:registry"):
-        st = redis_client.hget(f"case:{cid}", "status")
-        if st:
-            cases_by_status[st] += 1
+        cases_by_status: dict[str, int] = defaultdict(int)
+        for cid in redis_client.smembers("cases:registry"):
+            st = redis_client.hget(f"case:{cid}", "status")
+            if st:
+                cases_by_status[st] += 1
 
-    workers = _worker_entries()
-    alive = [w for w in workers if w["alive"]]
-    return {
-        "queues": queues,
-        "cases_by_status": dict(cases_by_status),
-        "workers_alive": len(alive),
-        "workers_total": len(workers),
-        "subtasks_active": sum(_int_or_none(w.get("active_subtasks")) or 0 for w in alive),
-    }
+        workers = _worker_entries()
+        alive = [w for w in workers if w["alive"]]
+        return {
+            "queues": queues,
+            "cases_by_status": dict(cases_by_status),
+            "workers_alive": len(alive),
+            "workers_total": len(workers),
+            "subtasks_active": sum(_int_or_none(w.get("active_subtasks")) or 0 for w in alive),
+        }
+    except redis_lib.exceptions.ConnectionError as e:
+        raise _redis_unavailable(e)
+
+
+# ---------------------------------------------------------------------------
+# GET /hardware — per-worker hardware snapshot for real-time monitoring
+# ---------------------------------------------------------------------------
+@app.get("/hardware", response_model=list, tags=["Dashboard"])
+def get_hardware() -> list:
+    """
+    Return a lightweight hardware snapshot for every *alive* worker.
+
+    Fields
+    ------
+    worker_id, host, ip          — identity
+    cpu_percent                  — CPU utilization reported by last heartbeat
+    mem_percent                  — RAM utilization reported by last heartbeat
+    mem_total_gb                 — total physical RAM in GiB (if published)
+    cpu_count                    — logical CPU count (if published)
+    gpu                          — GPU model name (\"none\" if CPU-only)
+    nvenc_ok                     — \"1\" if h264_nvenc encoder is available
+    gpu_percent                  — GPU utilization % (null if unavailable)
+    active_subtasks              — in-flight sub-tasks right now
+    last_seen                    — ISO timestamp of the last heartbeat
+    """
+    try:
+        workers = _worker_entries()
+    except redis_lib.exceptions.ConnectionError:
+        return []   # dashboard recibe lista vacía; no crashea
+    result = []
+    for w in workers:
+        if not w.get("alive"):
+            continue
+        entry: dict[str, Any] = {
+            "worker_id":        w.get("worker_id"),
+            "host":             w.get("host"),
+            "ip":               w.get("ip"),
+            "cpu_percent":      _float_or_none(w.get("cpu_percent")),
+            "mem_percent":      _float_or_none(w.get("mem_percent")),
+            "mem_total_gb":     _float_or_none(w.get("mem_total_gb")),
+            "cpu_count":        _int_or_none(w.get("cpu_count")),
+            "gpu":              w.get("gpu") or "none",
+            "nvenc_ok":         w.get("nvenc_ok", "0"),
+            "gpu_percent":      _float_or_none(w.get("gpu_percent")),
+            "active_subtasks":  _int_or_none(w.get("active_subtasks")) or 0,
+            "last_seen":        w.get("last_seen"),
+        }
+        result.append(entry)
+    return result
+
 
 
 # ---------------------------------------------------------------------------

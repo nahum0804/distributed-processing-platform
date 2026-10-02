@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import socket
 import subprocess
 import threading
@@ -14,6 +15,26 @@ from src.workers.config import Settings
 logger = logging.getLogger(__name__)
 
 _GPU_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf", "h264_vaapi")
+
+# Optional pynvml — available only on NVIDIA nodes
+try:
+    import pynvml  # type: ignore
+    pynvml.nvmlInit()
+    _NVML_OK = True
+except Exception:
+    _NVML_OK = False
+
+
+def _gpu_utilization_percent() -> float | None:
+    """Return GPU utilization % for the first NVIDIA device, or None."""
+    if not _NVML_OK:
+        return None
+    try:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        return float(util.gpu)
+    except Exception:
+        return None
 
 
 class WorkerStats:
@@ -95,6 +116,10 @@ class Heartbeat(threading.Thread):
         self.gpu, self.nvenc_ok = self._resolve_gpu(processor, gpu_info)
         self.started_at = datetime.now(timezone.utc).isoformat()
         self.key = f"worker:{settings.worker_id}"
+        # Static fields collected once at startup
+        self._cpu_count: int = os.cpu_count() or 1
+        mem = psutil.virtual_memory()
+        self._mem_total_gb: float = round(mem.total / (1024 ** 3), 2)
 
     @staticmethod
     def _resolve_gpu(processor, gpu_info: dict | None) -> tuple[str, str]:
@@ -116,7 +141,8 @@ class Heartbeat(threading.Thread):
     def beat(self) -> None:
         stats = self.stats.snapshot()
         now = datetime.now(timezone.utc).isoformat()
-        mapping = {
+        gpu_pct = _gpu_utilization_percent()
+        mapping: dict = {
             "worker_id": self.settings.worker_id,
             "host": self.settings.node_name,
             "hostname": socket.gethostname(),
@@ -126,6 +152,8 @@ class Heartbeat(threading.Thread):
             "threads_per_job": self.settings.threads_per_job(),
             "cpu_percent": psutil.cpu_percent(interval=None),
             "mem_percent": psutil.virtual_memory().percent,
+            "cpu_count": self._cpu_count,
+            "mem_total_gb": self._mem_total_gb,
             "active_subtasks": stats["active"],
             "completed_count": stats["completed"],
             "failed_count": stats["failed"],
@@ -137,6 +165,10 @@ class Heartbeat(threading.Thread):
             "started_at": self.started_at,
             "last_seen": now,
         }
+        # Only publish gpu_percent when NVML is available (avoids storing "" in Redis)
+        if gpu_pct is not None:
+            mapping["gpu_percent"] = gpu_pct
+
         pipe = self.redis.pipeline()
         pipe.hset(self.key, mapping=mapping)
         pipe.expire(self.key, self.settings.heartbeat_ttl)
@@ -153,3 +185,4 @@ class Heartbeat(threading.Thread):
                 self.beat()
             except Exception as e:
                 logger.warning("fallo de heartbeat: %s", e)
+

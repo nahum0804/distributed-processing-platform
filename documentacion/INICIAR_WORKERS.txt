@@ -4,12 +4,25 @@ INICIAR LOS WORKERS (worker.py)
 Servidor Central (Nahum):  100.122.10.52:8000
 Worker de Kenny (Linux):   100.118.70.69
 
+QUE HACE EL WORKER
+- Pide una tarea al servidor, PROCESA el archivo con FFmpeg y reporta:
+    mp4       -> transcode_video  (video H.264 + AAC)
+    mp3, wav  -> convert_audio    (MP3)
+- Los resultados quedan en la carpeta resultados_worker/ (una carpeta por tarea).
+- Si un archivo no esta en su --dataset-dir, la tarea se reporta como fallida
+  (antes se marcaba exitosa sin procesar nada).
+- Con --simulate solo espera unos segundos, sin FFmpeg (como antes).
+
+REQUISITOS EN CADA MAQUINA WORKER
+1. Tailscale activo y con sesion iniciada en la misma cuenta del servidor.
+2. FFmpeg instalado (comprobar con:  ffmpeg -version).
+3. Una copia local del dataset (los mismos archivos que el servidor sembro).
+   La estructura de carpetas puede ser distinta: el worker busca por nombre.
+
 Orden recomendado:
-  1. El servidor ya esta iniciado (REINICIAR_SERVIDOR.txt, pasos 1 a 5).
+  1. El servidor ya esta iniciado (REINICIAR_SERVIDOR.txt).
   2. Iniciar TODOS los workers con este archivo.
-  3. Recien entonces sembrar la cola (REINICIAR_SERVIDOR.txt, paso 6).
-  Si se siembra antes, el worker local del servidor puede consumir todo
-  antes de que los remotos se conecten.
+  3. Recien entonces sembrar o reiniciar la cola (REINICIAR_SERVIDOR.txt).
 
 IMPORTANTE
 - Copiar los comandos de este archivo, no del PDF (el PDF parte las lineas).
@@ -22,20 +35,24 @@ IMPORTANTE
 A) WORKER REMOTO EN LINUX (laptop de Kenny)
 -----------------------------------------------------
 
-# PASO 1. Verificar Tailscale y la conexion con el servidor
+# PASO 1. Ir a la carpeta del proyecto y actualizar
+cd ~/Documents/Tecnologico/2026/IIS/Sistemas-Operativos/Proyecto/distributed-processing-platform
+git pull
+.venv/bin/pip install -r requirements.txt
+
+# PASO 2. FFmpeg (solo la primera vez)
+ffmpeg -version || sudo apt install -y ffmpeg
+
+# PASO 3. Verificar Tailscale y el servidor
 tailscale status
 tailscale ping 100.122.10.52
-# Debe responder "pong"
-
-# PASO 2. Verificar que el servidor responde
 curl http://100.122.10.52:8000/tasks/status
 
-# PASO 3. Ir a la carpeta del proyecto
-cd ~/Documents/Tecnologico/2026/IIS/Sistemas-Operativos/Proyecto/distributed-processing-platform
-
 # PASO 4. Iniciar el worker (dejar la terminal abierta)
-python3 worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-01 --dataset-dir dataset/real_sample
+#         dataset/real tiene los 307 archivos del dataset de Nahum.
+.venv/bin/python worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-01 --dataset-dir dataset/real
 
+# Al arrancar debe mostrar:  "Modo: REAL (FFmpeg)"  y  "Carpeta Dataset: ... (307 archivos)"
 # Para detenerlo: Ctrl + C
 
 
@@ -43,20 +60,22 @@ python3 worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-01
 B) WORKER REMOTO EN WINDOWS (otra laptop)
 -----------------------------------------------------
 
-# PASO 1. Verificar Tailscale y la conexion con el servidor (PowerShell)
-tailscale status
-tailscale ping 100.122.10.52
-
-# PASO 2. Verificar que el servidor responde
-Invoke-RestMethod http://100.122.10.52:8000/tasks/status
-
-# PASO 3. Carpeta del proyecto y entorno virtual
-#         (solo la primera vez: crear el entorno e instalar dependencias)
+# PASO 1. Carpeta del proyecto y entorno virtual (PowerShell)
+#         (la primera vez: crear el entorno con  py -m venv .venv)
 cd C:\ruta\al\proyecto\distributed-processing-platform
-py -m venv .venv
+git pull
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+
+# PASO 2. FFmpeg (solo la primera vez; luego abrir una ventana NUEVA)
+ffmpeg -version
+winget install --id Gyan.FFmpeg -e
+
+# PASO 3. Verificar Tailscale y el servidor
+tailscale status
+tailscale ping 100.122.10.52
+Invoke-RestMethod http://100.122.10.52:8000/tasks/status
 
 # PASO 4. Iniciar el worker (cambiar el --worker-id por uno propio)
 python worker.py --server http://100.122.10.52:8000 --worker-id laptop-windows-01 --dataset-dir C:\dataset
@@ -75,6 +94,13 @@ python worker.py --server http://127.0.0.1:8000 --worker-id local-server-worker 
 
 
 -----------------------------------------------------
+SIN FFMPEG (solo para probar la conexion)
+-----------------------------------------------------
+# Agregar --simulate al final del comando del worker. Ejemplo en Linux:
+.venv/bin/python worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-sim --dataset-dir dataset/real --simulate
+
+
+-----------------------------------------------------
 VERIFICAR QUE FUNCIONA
 -----------------------------------------------------
 
@@ -84,9 +110,9 @@ curl http://100.122.10.52:8000/tasks/status
 
 # En cada worker deben aparecer lineas como:
 #   Tarea recibida #12: 'mp4/....mp4' (Reintento #0)
+#   [V] 'mp4/....mp4' procesado en 8.91s -> resultados_worker/tarea_12/....mp4 (encoder libx264)
 #   Reporte enviado para tarea #12. Estado: ok
-# En la consola del servidor aparecen pedidos desde 100.118.70.69 (Kenny)
-# y desde 127.0.0.1 (worker local).
+# Cada tarea se asigna a un solo worker; las tareas se reparten entre todos.
 
 
 -----------------------------------------------------
@@ -97,17 +123,23 @@ PRUEBAS OPCIONALES DE TOLERANCIA A FALLOS
 #    A los 5 minutos (300 s) la tarea vuelve a "pending" y otro worker la toma:
 curl http://100.122.10.52:8000/tasks/status
 
-# 2) Fallos simulados: iniciar un worker con --simulate-failures.
+# 2) Fallos simulados: agregar --simulate-failures al comando del worker.
 #    Falla ~15 % de las tareas; tras 3 fallos una tarea queda en "failed".
-python3 worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-fallos --dataset-dir dataset/real_sample --simulate-failures
+.venv/bin/python worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-fallos --dataset-dir dataset/real --simulate-failures
 
 
 -----------------------------------------------------
 SI ALGO FALLA
 -----------------------------------------------------
+- Al arrancar dice "No se encontró ffmpeg": instalar FFmpeg (paso 2) o usar
+  --simulate.
+- Al arrancar dice "La carpeta del dataset no existe": corregir --dataset-dir.
 - "No se pudo conectar con el servidor central": Tailscale apagado en
   alguna maquina, o el servidor no esta corriendo.
 - "Sin tareas pendientes" todo el tiempo: la cola esta vacia o ya se
-  consumio. Revisar /tasks/status y sembrar de nuevo (REINICIAR_SERVIDOR.txt).
+  consumio. Revisar /tasks/status; si "pending" es 0, reiniciar la cola con
+  el METODO A de REINICIAR_SERVIDOR.txt (seed_tasks.py ... --reset).
+- Tareas fallidas con "Archivo no encontrado en --dataset-dir": esa maquina
+  no tiene una copia de ese archivo del dataset.
 - "error: argument --dataset-dir: expected one argument": el comando se
   partio en dos lineas al copiarlo. Pegarlo en una sola linea.

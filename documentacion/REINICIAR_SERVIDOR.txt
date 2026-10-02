@@ -1,60 +1,89 @@
-REINICIAR EL SERVIDOR CENTRAL (server.py + tasks.db)
-=====================================================
+REINICIAR EL SERVIDOR CENTRAL Y LA COLA DE TAREAS (server.py + tasks.db)
+=======================================================================
 
 Para la maquina que hace de Servidor Central (la de Nahum, Windows).
 IP de Tailscale del servidor: 100.122.10.52
 
-Cuando usarlo: cuando la cola ya se consumio (todas las tareas en "completed")
-y se quiere empezar de cero, o despues de cambiar el dataset.
+POR QUE LOS WORKERS DICEN "Sin tareas pendientes"
+- Cuando todas las tareas ya estan en "completed", la cola esta vacia.
+- Volver a correr seed_tasks.py SIN --reset NO las vuelve a poner en cola:
+  los archivos ya registrados se ignoran (el seeder ahora lo avisa con
+  "0 nuevos en cola (pending)").
+- Solucion: reiniciar la cola con el METODO A (recomendado) o el METODO B.
+  Despues, /tasks/status debe mostrar "pending" igual a "total".
 
 IMPORTANTE
 - Copiar los comandos de este archivo, no del PDF (el PDF parte las lineas).
-- Ejecutar todo desde la carpeta raiz del proyecto (donde esta server.py):
-  el servidor crea tasks.db en la carpeta desde donde se inicia.
 - Las lineas que empiezan con # son comentarios: no hace falta pegarlas.
-- Iniciar los workers ANTES del paso 6 (sembrar), para que reciban tareas.
-  Ver INICIAR_WORKERS.txt.
+- Iniciar los workers ANTES de sembrar, para que todos reciban tareas
+  (ver INICIAR_WORKERS.txt).
+- tasks.db se crea siempre junto a server.py, sin importar desde que carpeta
+  se inicie el servidor. Ya no esta en git (cada maquina tiene el suyo).
 
 
 -----------------------------------------------------
-WINDOWS (PowerShell)
+UNA SOLA VEZ: ACTUALIZAR EL REPOSITORIO (Windows, PowerShell)
+-----------------------------------------------------
+# tasks.db se quito de git. Si el servidor lo modifico, "git pull" se niega
+# a sobrescribirlo. Detener el servidor (Ctrl + C) y luego:
+cd C:\ruta\al\proyecto\distributed-processing-platform
+Rename-Item .\tasks.db tasks_viejo.db -ErrorAction SilentlyContinue
+git pull
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+
+-----------------------------------------------------
+METODO A (RECOMENDADO): reiniciar la cola sin detener el servidor
+-----------------------------------------------------
+# Con el servidor corriendo, en OTRA ventana de PowerShell:
+cd C:\ruta\al\proyecto\distributed-processing-platform
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+
+# 1. Ver el estado actual
+Invoke-RestMethod http://127.0.0.1:8000/tasks/status
+
+# 2. Vaciar la cola y volver a sembrar el dataset en un solo paso
+python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir C:\dataset --reset
+# Debe decir: "Cola reiniciada: N tareas anteriores eliminadas."
+#        y:   "N nuevos en cola (pending), 0 ya estaban registrados, 0 errores"
+
+# 3. Verificar: "pending" debe ser igual a "total" (y mayor que 0)
+Invoke-RestMethod http://127.0.0.1:8000/tasks/status
+
+
+-----------------------------------------------------
+METODO B: reinicio completo (detener servidor y borrar tasks.db)
 -----------------------------------------------------
 
 # PASO 1. Detener el servidor actual
 # En la ventana donde corre uvicorn, presionar:  Ctrl + C
 
-
 # PASO 2. Ir a la carpeta del proyecto y activar el entorno virtual
-#         (cambiar la ruta si el proyecto esta en otro lugar)
 cd C:\ruta\al\proyecto\distributed-processing-platform
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 
-
-# PASO 3. Borrar la base de datos de tareas (reinicia la cola)
+# PASO 3. Borrar la base de datos de tareas
 Remove-Item .\tasks.db -ErrorAction SilentlyContinue
 Test-Path .\tasks.db
 # Debe responder: False
 
-
 # PASO 4. Iniciar el servidor (dejar esta ventana abierta)
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 
-
 # PASO 5. Verificar (en una SEGUNDA ventana de PowerShell)
 Invoke-RestMethod http://127.0.0.1:8000/tasks/status
-# Debe responder: pending 0, processing 0, completed 0, failed 0, total 0
+# Debe responder: total 0
 tailscale ip -4
 # Debe mostrar 100.122.10.52 (la IP que usan los workers remotos)
 
-
-# PASO 6. Sembrar la cola con el dataset (en la SEGUNDA ventana)
-#         Hacerlo cuando los workers ya esten corriendo.
+# PASO 6. Iniciar los workers (INICIAR_WORKERS.txt) y luego sembrar
 cd C:\ruta\al\proyecto\distributed-processing-platform
 .\.venv\Scripts\Activate.ps1
 python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir C:\dataset
-# Debe terminar con: "N/N archivos registrados en la cola del Servidor Central."
-
+# Debe terminar con: "N nuevos en cola (pending), 0 ya estaban registrados, 0 errores"
 
 # PASO 7. Seguir el avance (repetir cuantas veces se quiera)
 Invoke-RestMethod http://127.0.0.1:8000/tasks/status
@@ -65,39 +94,40 @@ Invoke-RestMethod http://127.0.0.1:8000/tasks/status
 LINUX (si el servidor corre en Linux)
 -----------------------------------------------------
 
-# PASO 1. Detener el servidor actual: Ctrl + C en su terminal
-
-# PASO 2. Carpeta del proyecto y entorno virtual
+# Una sola vez: actualizar el repo (con el servidor detenido)
 cd ~/ruta/al/proyecto/distributed-processing-platform
+mv tasks.db tasks_viejo.db 2>/dev/null; git pull
 source .venv/bin/activate
+pip install -r requirements.txt
 
-# PASO 3. Borrar la base de datos de tareas
+# Metodo A: reiniciar la cola sin detener el servidor (otra terminal)
+python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir /ruta/al/dataset --reset
+curl http://127.0.0.1:8000/tasks/status
+
+# Metodo B: reinicio completo
+# 1) Ctrl + C en la terminal del servidor
 rm -f tasks.db
-ls tasks.db
-# Debe decir: No such file or directory
-
-# PASO 4. Iniciar el servidor (dejar la terminal abierta)
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
-
-# PASO 5. Verificar (en otra terminal)
-curl http://127.0.0.1:8000/tasks/status
-tailscale ip -4
-
-# PASO 6. Sembrar la cola (cuando los workers ya esten corriendo)
-cd ~/ruta/al/proyecto/distributed-processing-platform
-source .venv/bin/activate
+# 2) en otra terminal, con los workers ya corriendo:
 python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir /ruta/al/dataset
-
-# PASO 7. Seguir el avance
 curl http://127.0.0.1:8000/tasks/status
+
+
+-----------------------------------------------------
+TAMBIEN DISPONIBLE POR API (equivale al metodo A)
+-----------------------------------------------------
+# Vaciar la cola (todas las tareas):
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/tasks/reset -ContentType "application/json" -Body '{}'
+# Vaciar y re-escanear una carpeta de la maquina del servidor:
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/tasks/reset -ContentType "application/json" -Body '{"dataset_path": "C:\\dataset"}'
 
 
 -----------------------------------------------------
 NOTAS
 -----------------------------------------------------
-- tasks.db esta versionado en git: despues de borrarlo, "git status" lo
-  mostrara como modificado o borrado. NO lo incluyan en un commit.
 - Si "Activate.ps1" falla por politicas de ejecucion, el comando
-  Set-ExecutionPolicy del paso 2 lo resuelve solo para esa ventana.
+  Set-ExecutionPolicy de arriba lo resuelve solo para esa ventana.
 - Si los workers remotos no conectan, revisar que Tailscale este activo en
   ambas maquinas:  tailscale status
+- Un worker local en el servidor, si se inicia primero, puede tomar casi
+  todas las tareas: iniciar los remotos antes de sembrar.

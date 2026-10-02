@@ -8,3 +8,5 @@ dataset/media/
 resultados/
 dataset/real/
 dataset/real_sample/
+tasks.db
+resultados_worker/

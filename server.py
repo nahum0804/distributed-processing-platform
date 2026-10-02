@@ -3,6 +3,7 @@ import sqlite3
 import logging
 from datetime import datetime
 from typing import Optional, List
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel, Field
 
@@ -14,14 +15,23 @@ logging.basicConfig(
 logger = logging.getLogger("CentralServer")
 
 # Configuración Global
-DB_PATH = "tasks.db"
+# Ruta fija junto a server.py (antes era relativa a la carpeta de inicio y creaba
+# bases distintas segun desde donde se lanzara uvicorn). TASKS_DB la sobreescribe.
+DB_PATH = os.getenv("TASKS_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks.db")
 MAX_RETRIES = 3
 TASK_TIMEOUT_SECONDS = 300  # 5 minutos para reasignar tareas abandonadas
 DEFAULT_DATASET_DIR = r"C:\dataset"
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Servidor Central de Procesamiento Distribuido Multimedia",
-    version="1.1.0",
+    version="1.2.0",
     description="Coordinador de cola de tareas multimedia con soporte para reintentos, workers locales/remotos y escaneo automático de datasets."
 )
 
@@ -35,6 +45,11 @@ class TaskRegister(BaseModel):
 
 class ScanDatasetRequest(BaseModel):
     dataset_path: str = Field(DEFAULT_DATASET_DIR, description="Ruta absoluta del dataset a escanear")
+
+class ResetRequest(BaseModel):
+    dataset_path: Optional[str] = Field(
+        None, description="Si se envía, después de vaciar la cola se re-escanea este directorio (en la máquina del servidor)"
+    )
 
 class TaskReport(BaseModel):
     worker_id: str = Field(..., description="Identificador único de la laptop o worker local")
@@ -51,6 +66,7 @@ class TaskResponse(BaseModel):
     retry_count: int
     created_at: str
     updated_at: str
+    created: Optional[bool] = Field(None, description="En /tasks/register: True si la tarea es nueva, False si ya existía")
 
 # ------------------------------------------------------------------------------
 # Manejo de Base de Datos SQLite
@@ -82,9 +98,6 @@ def init_db():
         conn.commit()
     logger.info("Base de datos SQLite inicializada correctamente.")
 
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 # ------------------------------------------------------------------------------
 # Lógica de Tolerancia a Fallos y Reintentos
@@ -145,27 +158,32 @@ def get_next_task(worker_id: str = Query(..., description="ID o nombre del worke
         reclaim_stale_tasks(conn)
         cursor = conn.cursor()
         
-        cursor.execute("""
-            SELECT id, filename, file_type, status, worker_id, retry_count, created_at, updated_at 
-            FROM tasks 
-            WHERE status = 'pending' 
-            ORDER BY id ASC 
-            LIMIT 1
-        """)
-        row = cursor.fetchone()
-        
-        if not row:
-            return None
-        
-        task_id = row["id"]
-        cursor.execute("""
-            UPDATE tasks 
-            SET status = 'processing', 
-                worker_id = ?, 
-                updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        """, (worker_id, task_id))
-        conn.commit()
+        # Reclamo atomico: el UPDATE solo gana si la tarea sigue 'pending'. Si otro worker
+        # la tomo entre el SELECT y el UPDATE (rowcount 0), se intenta con la siguiente.
+        while True:
+            cursor.execute("""
+                SELECT id, filename
+                FROM tasks
+                WHERE status = 'pending'
+                ORDER BY id ASC
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            task_id = row["id"]
+            cursor.execute("""
+                UPDATE tasks
+                SET status = 'processing',
+                    worker_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'pending'
+            """, (worker_id, task_id))
+            conn.commit()
+            if cursor.rowcount == 1:
+                break
         
         logger.info(f"Tarea #{task_id} ('{row['filename']}') asignada a: {worker_id}")
         
@@ -232,29 +250,33 @@ def report_task_status(task_id: int, report: TaskReport):
 @app.post("/tasks/register", response_model=TaskResponse)
 def register_task(task: TaskRegister):
     """Añade un nuevo archivo multimedia a la cola de procesamiento."""
-    file_ext = task.file_type or task.filename.split(".")[-1].lower()
+    filename = normalize_filename(task.filename)
+    file_ext = task.file_type or filename.split(".")[-1].lower()
     if file_ext not in ["mp3", "mp4", "wav"]:
         raise HTTPException(status_code=400, detail="Formato no soportado. Debe ser mp3, mp4 o wav.")
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO tasks (filename, file_type, status) 
+                INSERT INTO tasks (filename, file_type, status)
                 VALUES (?, ?, 'pending')
-            """, (task.filename, file_ext))
+            """, (filename, file_ext))
             task_id = cursor.lastrowid
             conn.commit()
         except sqlite3.IntegrityError:
-            # Si ya existe por nombre único, retornamos la tarea existente
-            cursor.execute("SELECT * FROM tasks WHERE filename = ?", (task.filename,))
-            existing = cursor.fetchone()
-            return dict(existing)
-        
+            # Ya existe (por nombre único): se devuelve tal cual con created=False. Si ya está
+            # 'completed', NO vuelve a la cola; para reprocesar hay que usar POST /tasks/reset.
+            cursor.execute("SELECT * FROM tasks WHERE filename = ?", (filename,))
+            existing = dict(cursor.fetchone())
+            existing["created"] = False
+            return existing
+
         cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
-        new_task = cursor.fetchone()
-        logger.info(f"Nuevo archivo registrado en cola: #{task_id} ({task.filename})")
-        return dict(new_task)
+        new_task = dict(cursor.fetchone())
+        new_task["created"] = True
+        logger.info(f"Nuevo archivo registrado en cola: #{task_id} ({filename})")
+        return new_task
 
 
 @app.post("/tasks/scan_dataset")
@@ -263,28 +285,64 @@ def scan_dataset(req: ScanDatasetRequest = ScanDatasetRequest()):
     path = req.dataset_path
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"La ruta '{path}' no existe en el sistema.")
-        
-    supported = {".mp3", ".mp4", ".wav"}
-    added_count = 0
-    
+
+    with get_db_connection() as conn:
+        added_count, existing_count = _scan_into(conn, path)
+
+    return {"status": "ok", "dataset_path": path, "files_registered": added_count,
+            "already_registered": existing_count}
+
+
+@app.post("/tasks/reset")
+def reset_tasks(req: ResetRequest = ResetRequest()):
+    """Vacía la cola completa (todas las tareas, en cualquier estado) y reinicia los ids.
+
+    Equivale a borrar tasks.db pero sin detener el servidor. Si se envía dataset_path,
+    después re-escanea ese directorio para que la cola quede de nuevo en 'pending'.
+    """
+    if req.dataset_path is not None and not os.path.exists(req.dataset_path):
+        raise HTTPException(status_code=404, detail=f"La ruta '{req.dataset_path}' no existe en el sistema.")
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        for root, _, files in os.walk(path):
-            for f in files:
-                ext = os.path.splitext(f)[1].lower()
-                if ext in supported:
-                    rel_path = os.path.relpath(os.path.join(root, f), path)
-                    try:
-                        cursor.execute("""
-                            INSERT INTO tasks (filename, file_type, status) 
-                            VALUES (?, ?, 'pending')
-                        """, (rel_path, ext.lstrip(".")))
-                        added_count += 1
-                    except sqlite3.IntegrityError:
-                        pass # Ya existe en la base de datos
+        cursor.execute("SELECT COUNT(*) FROM tasks")
+        deleted = cursor.fetchone()[0]
+        cursor.execute("DELETE FROM tasks")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name = 'tasks'")
         conn.commit()
-        
-    return {"status": "ok", "dataset_path": path, "files_registered": added_count}
+        registered = 0
+        if req.dataset_path is not None:
+            registered, _ = _scan_into(conn, req.dataset_path)
+
+    logger.warning(f"Cola reiniciada: {deleted} tareas eliminadas, {registered} registradas de nuevo.")
+    return {"status": "ok", "deleted": deleted, "files_registered": registered}
+
+
+def normalize_filename(filename: str) -> str:
+    """Rutas relativas siempre con '/', para que un worker en Linux resuelva lo sembrado en Windows."""
+    return filename.replace("\\", "/").lstrip("/")
+
+
+def _scan_into(conn: sqlite3.Connection, path: str) -> tuple[int, int]:
+    supported = {".mp3", ".mp4", ".wav"}
+    added_count = 0
+    existing_count = 0
+    cursor = conn.cursor()
+    for root, _, files in os.walk(path):
+        for f in files:
+            ext = os.path.splitext(f)[1].lower()
+            if ext in supported:
+                rel_path = normalize_filename(os.path.relpath(os.path.join(root, f), path))
+                try:
+                    cursor.execute("""
+                        INSERT INTO tasks (filename, file_type, status)
+                        VALUES (?, ?, 'pending')
+                    """, (rel_path, ext.lstrip(".")))
+                    added_count += 1
+                except sqlite3.IntegrityError:
+                    existing_count += 1
+    conn.commit()
+    return added_count, existing_count
 
 
 @app.get("/tasks/status")

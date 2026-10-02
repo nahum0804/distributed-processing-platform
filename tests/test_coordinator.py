@@ -325,3 +325,77 @@ def test_list_cases_status_filter(client, fake):
     cancelled = client.get("/cases", params={"status": "cancelled"}).json()
     assert [c["case_id"] for c in cancelled] == [c2]
     assert client.get("/cases", params={"status": "failed"}).json() == []
+
+
+# --- health / hardware / Redis caído ----------------------------------------
+def _redis_down(fake, monkeypatch):
+    import redis as redis_lib
+
+    def boom(*a, **k):
+        raise redis_lib.exceptions.ConnectionError("down")
+
+    for name in ("ping", "smembers", "hgetall", "llen"):
+        monkeypatch.setattr(fake, name, boom)
+
+
+def test_health_ok(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+    assert "redis" in r.json()
+
+
+def test_health_503_when_redis_down(client, fake, monkeypatch):
+    _redis_down(fake, monkeypatch)
+    r = client.get("/health")
+    assert r.status_code == 503
+    assert "Redis" in r.json()["detail"]
+
+
+def test_health_503_when_redis_times_out(client, fake, monkeypatch):
+    import redis as redis_lib
+
+    def timeout(*args, **kwargs):
+        raise redis_lib.exceptions.TimeoutError("timeout")
+
+    monkeypatch.setattr(fake, "ping", timeout)
+    r = client.get("/health")
+    assert r.status_code == 503
+
+
+def test_hardware_returns_alive_workers_only(client, fake):
+    fake.sadd("workers:registry", "w1", "w2")
+    fake.hset("worker:w1", mapping={
+        "host": "h1", "ip": "10.0.0.1", "cpu_percent": "12.5", "mem_percent": "30",
+        "mem_total_gb": "16", "cpu_count": "8", "gpu": "RTX", "nvenc_ok": "1",
+        "gpu_percent": "44.0", "active_subtasks": "2", "last_seen": "t"})
+    data = client.get("/hardware").json()
+    assert len(data) == 1
+    e = data[0]
+    assert e["worker_id"] == "w1" and e["host"] == "h1"
+    assert e["cpu_percent"] == 12.5 and e["mem_percent"] == 30.0
+    assert e["mem_total_gb"] == 16.0 and e["cpu_count"] == 8
+    assert e["gpu"] == "RTX" and e["gpu_percent"] == 44.0
+    assert e["active_subtasks"] == 2
+
+
+def test_hardware_defaults_without_gpu(client, fake):
+    fake.sadd("workers:registry", "w1")
+    fake.hset("worker:w1", mapping={"host": "h1"})
+    e = client.get("/hardware").json()[0]
+    assert e["gpu"] == "none" and e["gpu_percent"] is None and e["nvenc_ok"] == "0"
+
+
+@pytest.mark.parametrize("path", ["/workers", "/stats"])
+def test_dashboard_endpoints_503_when_redis_down(client, fake, monkeypatch, path):
+    _redis_down(fake, monkeypatch)
+    r = client.get(path)
+    assert r.status_code == 503
+    assert "Redis" in r.json()["detail"]
+
+
+def test_hardware_empty_list_when_redis_down(client, fake, monkeypatch):
+    # /hardware degrades to [] (documented in the endpoint) instead of 503
+    _redis_down(fake, monkeypatch)
+    r = client.get("/hardware")
+    assert r.status_code == 200 and r.json() == []

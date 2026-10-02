@@ -654,7 +654,7 @@ def health_check() -> dict:
     try:
         redis_client.ping()
         return {"status": "ok", "redis": f"{_REDIS_HOST}:{_REDIS_PORT}"}
-    except redis_lib.exceptions.ConnectionError as e:
+    except (redis_lib.exceptions.ConnectionError, redis_lib.exceptions.TimeoutError) as e:
         raise HTTPException(
             status_code=503,
             detail=f"Redis no disponible en {_REDIS_HOST}:{_REDIS_PORT} — {e}",

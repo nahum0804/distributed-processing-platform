@@ -212,13 +212,13 @@ else:
         st.caption("Uso de CPU (%) por worker — tiempo real")
         cpu_df = pd.DataFrame({wid: df["cpu"] for wid, df in all_histories.items()})
         if not cpu_df.empty:
-            st.line_chart(cpu_df, use_container_width=True, height=300)
+            st.line_chart(cpu_df, width="stretch", height=300)
 
     with mem_tab:
         st.caption("Uso de RAM (%) por worker — tiempo real")
         mem_df = pd.DataFrame({wid: df["mem"] for wid, df in all_histories.items()})
         if not mem_df.empty:
-            st.line_chart(mem_df, use_container_width=True, height=300)
+            st.line_chart(mem_df, width="stretch", height=300)
 
     with gpu_tab:
         st.caption("Uso de GPU (%) — requiere NVIDIA + pynvml en el worker")
@@ -228,7 +228,7 @@ else:
             if "gpu" in df.columns and df["gpu"].notna().any()
         }
         if gpu_series:
-            st.line_chart(pd.DataFrame(gpu_series), use_container_width=True, height=300)
+            st.line_chart(pd.DataFrame(gpu_series), width="stretch", height=300)
         else:
             st.info("Sin datos de GPU. Instala `pynvml` en los workers NVIDIA.")
 
@@ -263,7 +263,7 @@ else:
                     )
                     if "gpu" in df_node.columns and df_node["gpu"].notna().any():
                         chart_df["GPU %"] = df_node["gpu"]
-                    st.line_chart(chart_df, use_container_width=True, height=200)
+                    st.line_chart(chart_df, width="stretch", height=200)
                 else:
                     st.caption("Sin historial aún...")
 
@@ -280,7 +280,7 @@ if workers_raw:
         "queues", "concurrency", "last_seen",
     ]
     visible = [c for c in show_cols if c in df_w.columns]
-    st.dataframe(df_w[visible], use_container_width=True, height=min(300, 40 + 35 * len(df_w)))
+    st.dataframe(df_w[visible], width="stretch", height=min(300, 40 + 35 * len(df_w)))
 else:
     st.info("No hay workers registrados todavía.")
 

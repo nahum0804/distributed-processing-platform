@@ -63,7 +63,7 @@ cols = ["case_id", "status", "priority", "total_subtasks",
 if "status" in df.columns:
     df["status"] = df["status"].apply(lambda s: f"{STATUS_ICONS.get(s, '•')} {s}")
 
-st.dataframe(df[[c for c in cols if c in df.columns]], use_container_width=True)
+st.dataframe(df[[c for c in cols if c in df.columns]], width="stretch")
 
 # ── Detalle de un caso ────────────────────────────────────────────────────────
 st.divider()
@@ -158,6 +158,6 @@ if rows:
         df_sub["status"] = df_sub["status"].apply(
             lambda s: f"{STATUS_ICONS.get(str(s), '•')} {s}" if s else "—"
         )
-    st.dataframe(df_sub, use_container_width=True)
+    st.dataframe(df_sub, width="stretch")
 else:
     st.info("No hay sub-tareas para mostrar.")

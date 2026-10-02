@@ -1,0 +1,103 @@
+REINICIAR EL SERVIDOR CENTRAL (server.py + tasks.db)
+=====================================================
+
+Para la maquina que hace de Servidor Central (la de Nahum, Windows).
+IP de Tailscale del servidor: 100.122.10.52
+
+Cuando usarlo: cuando la cola ya se consumio (todas las tareas en "completed")
+y se quiere empezar de cero, o despues de cambiar el dataset.
+
+IMPORTANTE
+- Copiar los comandos de este archivo, no del PDF (el PDF parte las lineas).
+- Ejecutar todo desde la carpeta raiz del proyecto (donde esta server.py):
+  el servidor crea tasks.db en la carpeta desde donde se inicia.
+- Las lineas que empiezan con # son comentarios: no hace falta pegarlas.
+- Iniciar los workers ANTES del paso 6 (sembrar), para que reciban tareas.
+  Ver INICIAR_WORKERS.txt.
+
+
+-----------------------------------------------------
+WINDOWS (PowerShell)
+-----------------------------------------------------
+
+# PASO 1. Detener el servidor actual
+# En la ventana donde corre uvicorn, presionar:  Ctrl + C
+
+
+# PASO 2. Ir a la carpeta del proyecto y activar el entorno virtual
+#         (cambiar la ruta si el proyecto esta en otro lugar)
+cd C:\ruta\al\proyecto\distributed-processing-platform
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+
+
+# PASO 3. Borrar la base de datos de tareas (reinicia la cola)
+Remove-Item .\tasks.db -ErrorAction SilentlyContinue
+Test-Path .\tasks.db
+# Debe responder: False
+
+
+# PASO 4. Iniciar el servidor (dejar esta ventana abierta)
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+
+
+# PASO 5. Verificar (en una SEGUNDA ventana de PowerShell)
+Invoke-RestMethod http://127.0.0.1:8000/tasks/status
+# Debe responder: pending 0, processing 0, completed 0, failed 0, total 0
+tailscale ip -4
+# Debe mostrar 100.122.10.52 (la IP que usan los workers remotos)
+
+
+# PASO 6. Sembrar la cola con el dataset (en la SEGUNDA ventana)
+#         Hacerlo cuando los workers ya esten corriendo.
+cd C:\ruta\al\proyecto\distributed-processing-platform
+.\.venv\Scripts\Activate.ps1
+python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir C:\dataset
+# Debe terminar con: "N/N archivos registrados en la cola del Servidor Central."
+
+
+# PASO 7. Seguir el avance (repetir cuantas veces se quiera)
+Invoke-RestMethod http://127.0.0.1:8000/tasks/status
+# Swagger (en el navegador): http://127.0.0.1:8000/docs
+
+
+-----------------------------------------------------
+LINUX (si el servidor corre en Linux)
+-----------------------------------------------------
+
+# PASO 1. Detener el servidor actual: Ctrl + C en su terminal
+
+# PASO 2. Carpeta del proyecto y entorno virtual
+cd ~/ruta/al/proyecto/distributed-processing-platform
+source .venv/bin/activate
+
+# PASO 3. Borrar la base de datos de tareas
+rm -f tasks.db
+ls tasks.db
+# Debe decir: No such file or directory
+
+# PASO 4. Iniciar el servidor (dejar la terminal abierta)
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+
+# PASO 5. Verificar (en otra terminal)
+curl http://127.0.0.1:8000/tasks/status
+tailscale ip -4
+
+# PASO 6. Sembrar la cola (cuando los workers ya esten corriendo)
+cd ~/ruta/al/proyecto/distributed-processing-platform
+source .venv/bin/activate
+python seed_tasks.py --server http://127.0.0.1:8000 --dataset-dir /ruta/al/dataset
+
+# PASO 7. Seguir el avance
+curl http://127.0.0.1:8000/tasks/status
+
+
+-----------------------------------------------------
+NOTAS
+-----------------------------------------------------
+- tasks.db esta versionado en git: despues de borrarlo, "git status" lo
+  mostrara como modificado o borrado. NO lo incluyan en un commit.
+- Si "Activate.ps1" falla por politicas de ejecucion, el comando
+  Set-ExecutionPolicy del paso 2 lo resuelve solo para esa ventana.
+- Si los workers remotos no conectan, revisar que Tailscale este activo en
+  ambas maquinas:  tailscale status

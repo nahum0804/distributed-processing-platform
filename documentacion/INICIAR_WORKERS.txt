@@ -1,0 +1,113 @@
+INICIAR LOS WORKERS (worker.py)
+==============================
+
+Servidor Central (Nahum):  100.122.10.52:8000
+Worker de Kenny (Linux):   100.118.70.69
+
+Orden recomendado:
+  1. El servidor ya esta iniciado (REINICIAR_SERVIDOR.txt, pasos 1 a 5).
+  2. Iniciar TODOS los workers con este archivo.
+  3. Recien entonces sembrar la cola (REINICIAR_SERVIDOR.txt, paso 6).
+  Si se siembra antes, el worker local del servidor puede consumir todo
+  antes de que los remotos se conecten.
+
+IMPORTANTE
+- Copiar los comandos de este archivo, no del PDF (el PDF parte las lineas).
+- Cada comando de worker va en UNA sola linea.
+- Cada worker necesita un --worker-id distinto.
+- Las lineas que empiezan con # son comentarios.
+
+
+-----------------------------------------------------
+A) WORKER REMOTO EN LINUX (laptop de Kenny)
+-----------------------------------------------------
+
+# PASO 1. Verificar Tailscale y la conexion con el servidor
+tailscale status
+tailscale ping 100.122.10.52
+# Debe responder "pong"
+
+# PASO 2. Verificar que el servidor responde
+curl http://100.122.10.52:8000/tasks/status
+
+# PASO 3. Ir a la carpeta del proyecto
+cd ~/Documents/Tecnologico/2026/IIS/Sistemas-Operativos/Proyecto/distributed-processing-platform
+
+# PASO 4. Iniciar el worker (dejar la terminal abierta)
+python3 worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-01 --dataset-dir dataset/real_sample
+
+# Para detenerlo: Ctrl + C
+
+
+-----------------------------------------------------
+B) WORKER REMOTO EN WINDOWS (otra laptop)
+-----------------------------------------------------
+
+# PASO 1. Verificar Tailscale y la conexion con el servidor (PowerShell)
+tailscale status
+tailscale ping 100.122.10.52
+
+# PASO 2. Verificar que el servidor responde
+Invoke-RestMethod http://100.122.10.52:8000/tasks/status
+
+# PASO 3. Carpeta del proyecto y entorno virtual
+#         (solo la primera vez: crear el entorno e instalar dependencias)
+cd C:\ruta\al\proyecto\distributed-processing-platform
+py -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# PASO 4. Iniciar el worker (cambiar el --worker-id por uno propio)
+python worker.py --server http://100.122.10.52:8000 --worker-id laptop-windows-01 --dataset-dir C:\dataset
+
+# Para detenerlo: Ctrl + C
+
+
+-----------------------------------------------------
+C) WORKER LOCAL EN EL SERVIDOR (maquina de Nahum, opcional)
+-----------------------------------------------------
+
+# En una TERCERA ventana de PowerShell del servidor
+cd C:\ruta\al\proyecto\distributed-processing-platform
+.\.venv\Scripts\Activate.ps1
+python worker.py --server http://127.0.0.1:8000 --worker-id local-server-worker --dataset-dir C:\dataset
+
+
+-----------------------------------------------------
+VERIFICAR QUE FUNCIONA
+-----------------------------------------------------
+
+# Desde cualquier maquina, repetir y ver que los numeros cambian
+curl http://100.122.10.52:8000/tasks/status
+# (en Windows: Invoke-RestMethod http://100.122.10.52:8000/tasks/status)
+
+# En cada worker deben aparecer lineas como:
+#   Tarea recibida #12: 'mp4/....mp4' (Reintento #0)
+#   Reporte enviado para tarea #12. Estado: ok
+# En la consola del servidor aparecen pedidos desde 100.118.70.69 (Kenny)
+# y desde 127.0.0.1 (worker local).
+
+
+-----------------------------------------------------
+PRUEBAS OPCIONALES DE TOLERANCIA A FALLOS
+-----------------------------------------------------
+
+# 1) Worker caido: detener un worker con Ctrl + C mientras procesa.
+#    A los 5 minutos (300 s) la tarea vuelve a "pending" y otro worker la toma:
+curl http://100.122.10.52:8000/tasks/status
+
+# 2) Fallos simulados: iniciar un worker con --simulate-failures.
+#    Falla ~15 % de las tareas; tras 3 fallos una tarea queda en "failed".
+python3 worker.py --server http://100.122.10.52:8000 --worker-id laptop-kenny-fallos --dataset-dir dataset/real_sample --simulate-failures
+
+
+-----------------------------------------------------
+SI ALGO FALLA
+-----------------------------------------------------
+- "No se pudo conectar con el servidor central": Tailscale apagado en
+  alguna maquina, o el servidor no esta corriendo.
+- "Sin tareas pendientes" todo el tiempo: la cola esta vacia o ya se
+  consumio. Revisar /tasks/status y sembrar de nuevo (REINICIAR_SERVIDOR.txt).
+- "error: argument --dataset-dir: expected one argument": el comando se
+  partio en dos lineas al copiarlo. Pegarlo en una sola linea.

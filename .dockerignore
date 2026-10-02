@@ -9,3 +9,7 @@ tests/
 docs/
 *.pdf
 dataset/
+resultados_worker/
+tasks*.db
+benchmarks/
+documentacion/

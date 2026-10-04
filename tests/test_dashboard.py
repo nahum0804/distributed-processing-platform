@@ -120,3 +120,67 @@ def test_casos_page_empty():
 @pytest.mark.parametrize("path", [APP, CASOS])
 def test_no_deprecated_use_container_width(path):
     assert "use_container_width" not in path.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- Cola SQLite (server.py)
+
+COLA = ROOT / "dashboard" / "pages" / "2_Cola_SQLite.py"
+Q_STATUS = {"pending": 10, "processing": 2, "completed": 5, "failed": 1, "total": 18}
+Q_WORKERS = [
+    {"worker_id": "laptop-a", "processing": 1, "completed": 3, "failed": 0, "total_time_sec": 9.0,
+     "avg_time_sec": 3.0, "last_activity": "2026-10-03 18:32:00"},
+    {"worker_id": "laptop-b", "processing": 1, "completed": 2, "failed": 1, "total_time_sec": 4.0,
+     "avg_time_sec": 2.0, "last_activity": "2026-10-03 18:32:05"},
+]
+Q_TASK = {"id": 7, "filename": "mp4/x.mp4", "file_type": "mp4", "status": "processing", "worker_id": "laptop-a",
+          "retry_count": 0, "created_at": "t", "updated_at": "t", "error_log": None, "execution_time_sec": None}
+
+
+def _strip_loop(src: str) -> str:
+    return re.sub(r"^(\s*)(time\.sleep\(REFRESH\)|st\.rerun\(\))\s*$", r"\1pass", src, flags=re.M)
+
+
+def _mock_queue():
+    responses.add(responses.GET, f"{BASE}/tasks/status", json=Q_STATUS)
+    responses.add(responses.GET, f"{BASE}/tasks/workers", json=Q_WORKERS)
+    responses.add(responses.GET, f"{BASE}/tasks", json=[
+        Q_TASK, {**Q_TASK, "id": 8, "status": "completed", "execution_time_sec": 2.5},
+        {**Q_TASK, "id": 9, "status": "failed", "error_log": "CorruptInputError: x"}])
+
+
+@responses.activate
+def test_cola_sqlite_page_shows_queue_and_workers():
+    _mock_queue()
+    at = AppTest.from_string(_strip_loop(COLA.read_text(encoding="utf-8")), default_timeout=30).run()
+
+    assert not at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["⏳ Pendientes"] == "10" and metrics["✅ Completadas"] == "5"
+    assert metrics["🖥️ Workers con actividad"] == "2"
+    assert len(at.dataframe) >= 3
+
+
+@responses.activate
+def test_cola_sqlite_page_server_down():
+    responses.add(responses.GET, f"{BASE}/tasks/status", body=requests.ConnectionError("down"))
+    at = AppTest.from_string(_strip_loop(COLA.read_text(encoding="utf-8")), default_timeout=30).run()
+
+    assert not at.exception
+    assert any("No se puede leer la cola" in e.value for e in at.error)
+
+
+@responses.activate
+def test_main_page_switches_to_sqlite_queue_when_pointed_at_server_py(tmp_path):
+    (tmp_path / "pages").mkdir()
+    (tmp_path / "app.py").write_text(_app_source(), encoding="utf-8")
+    (tmp_path / "pages" / "2_Cola_SQLite.py").write_text(_strip_loop(COLA.read_text(encoding="utf-8")),
+                                                          encoding="utf-8")
+    responses.add(responses.GET, f"{BASE}/workers", status=404, json={"detail": "Not Found"})
+    responses.add(responses.GET, f"{BASE}/stats", status=404, json={"detail": "Not Found"})
+    responses.add(responses.GET, f"{BASE}/hardware", status=404, json={"detail": "Not Found"})
+    _mock_queue()
+
+    at = AppTest.from_file(str(tmp_path / "app.py"), default_timeout=30).run()
+
+    assert not at.exception
+    assert any("Cola del Servidor Central" in m.value for m in at.markdown)

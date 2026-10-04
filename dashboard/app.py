@@ -101,6 +101,10 @@ with col_status:
         st.error("● Sin conexión", icon="🔴")
 
 if not connected:
+    # Si la URL apunta al Servidor Central SQLite (server.py), mostrar su cola.
+    queue_status, _ = _get_json(f"{BASE}/tasks/status")
+    if isinstance(queue_status, dict) and "pending" in queue_status:
+        st.switch_page("pages/2_Cola_SQLite.py")
     err_msg = workers_err or stats_err
     st.error(f"**No se puede conectar al coordinador en `{BASE}`**\n\n{err_msg}")
     st.info("💡 Asegúrate de que el coordinador esté corriendo:\n```\nuvicorn src.coordinator.main:app --reload\n```")

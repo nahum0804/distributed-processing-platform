@@ -92,9 +92,14 @@ def init_db():
                 retry_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                error_log TEXT
+                error_log TEXT,
+                execution_time_sec REAL
             )
         """)
+        # Migracion de bases creadas antes de guardar el tiempo de ejecucion.
+        columns = {row["name"] for row in cursor.execute("PRAGMA table_info(tasks)")}
+        if "execution_time_sec" not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN execution_time_sec REAL")
         conn.commit()
     logger.info("Base de datos SQLite inicializada correctamente.")
 
@@ -205,12 +210,14 @@ def report_task_status(task_id: int, report: TaskReport):
         
         if report.status == "completed":
             cursor.execute("""
-                UPDATE tasks 
-                SET status = 'completed', 
-                    error_log = NULL, 
-                    updated_at = CURRENT_TIMESTAMP 
+                UPDATE tasks
+                SET status = 'completed',
+                    worker_id = ?,
+                    error_log = NULL,
+                    execution_time_sec = ?,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            """, (task_id,))
+            """, (report.worker_id, report.execution_time_sec, task_id))
             conn.commit()
             logger.info(f"Tarea #{task_id} completada por '{report.worker_id}'. Tiempo: {report.execution_time_sec}s")
             return {"status": "ok", "message": f"Tarea #{task_id} marcada como completada."}
@@ -343,6 +350,47 @@ def _scan_into(conn: sqlite3.Connection, path: str) -> tuple[int, int]:
                     existing_count += 1
     conn.commit()
     return added_count, existing_count
+
+
+@app.get("/tasks")
+def list_tasks(
+    status: Optional[str] = Query(None, description="Filtrar por estado: pending, processing, completed, failed"),
+    limit: int = Query(500, ge=1, le=5000, description="Máximo de tareas a devolver (las más recientes primero)"),
+):
+    """Lista las tareas de la cola (para el dashboard), de la más reciente a la más antigua."""
+    query = """
+        SELECT id, filename, file_type, status, worker_id, retry_count, created_at, updated_at,
+               error_log, execution_time_sec
+        FROM tasks
+    """
+    params: list = []
+    if status:
+        query += " WHERE status = ?"
+        params.append(status)
+    query += " ORDER BY updated_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    with get_db_connection() as conn:
+        return [dict(row) for row in conn.execute(query, params)]
+
+
+@app.get("/tasks/workers")
+def list_task_workers():
+    """Actividad por worker: tareas en proceso, completadas, tiempo de procesamiento y última actividad."""
+    with get_db_connection() as conn:
+        rows = conn.execute("""
+            SELECT worker_id,
+                   SUM(status = 'processing') AS processing,
+                   SUM(status = 'completed') AS completed,
+                   SUM(status = 'failed') AS failed,
+                   ROUND(COALESCE(SUM(CASE WHEN status = 'completed' THEN execution_time_sec END), 0), 2) AS total_time_sec,
+                   ROUND(AVG(CASE WHEN status = 'completed' THEN execution_time_sec END), 2) AS avg_time_sec,
+                   MAX(updated_at) AS last_activity
+            FROM tasks
+            WHERE worker_id IS NOT NULL
+            GROUP BY worker_id
+            ORDER BY worker_id
+        """).fetchall()
+    return [dict(row) for row in rows]
 
 
 @app.get("/tasks/status")

@@ -294,3 +294,60 @@ def test_worker_loop_end_to_end_with_server_and_seeder(client, dataset, tmp_path
     assert status(client) == {"pending": 0, "processing": 0, "completed": 4, "failed": 0, "total": 4}
     assert sorted(c["operation"] for c in fake.calls) == [
         "convert_audio", "convert_audio", "convert_audio", "transcode_video"]
+
+
+# ---------------------------------------------------------------- dashboard endpoints
+
+def _complete(client, worker_id, seconds):
+    task = client.get("/tasks/next", params={"worker_id": worker_id}).json()
+    client.post(f"/tasks/{task['id']}/report",
+                json={"worker_id": worker_id, "status": "completed", "execution_time_sec": seconds})
+    return task
+
+
+def test_list_tasks_filters_and_keeps_execution_time(client):
+    for name in ("a.mp3", "b.mp3", "c.mp4"):
+        client.post("/tasks/register", json={"filename": name})
+    _complete(client, "w1", 1.5)
+    client.get("/tasks/next", params={"worker_id": "w2"})
+
+    everything = client.get("/tasks").json()
+    done = client.get("/tasks", params={"status": "completed"}).json()
+    running = client.get("/tasks", params={"status": "processing"}).json()
+
+    assert len(everything) == 3
+    assert [(t["filename"], t["worker_id"], t["execution_time_sec"]) for t in done] == [("a.mp3", "w1", 1.5)]
+    assert [(t["filename"], t["worker_id"]) for t in running] == [("b.mp3", "w2")]
+    assert len(client.get("/tasks", params={"limit": 1}).json()) == 1
+
+
+def test_workers_summary(client):
+    for i in range(4):
+        client.post("/tasks/register", json={"filename": f"f{i}.mp3"})
+    _complete(client, "laptop-a", 2.0)
+    _complete(client, "laptop-a", 4.0)
+    _complete(client, "laptop-b", 3.0)
+    client.get("/tasks/next", params={"worker_id": "laptop-b"})
+
+    summary = {w["worker_id"]: w for w in client.get("/tasks/workers").json()}
+
+    assert summary["laptop-a"]["completed"] == 2 and summary["laptop-a"]["processing"] == 0
+    assert summary["laptop-a"]["total_time_sec"] == 6.0 and summary["laptop-a"]["avg_time_sec"] == 3.0
+    assert summary["laptop-b"]["completed"] == 1 and summary["laptop-b"]["processing"] == 1
+    assert summary["laptop-b"]["last_activity"]
+
+
+def test_old_database_without_execution_time_is_migrated(tmp_path, monkeypatch):
+    import sqlite3
+    db = tmp_path / "old.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("""CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL UNIQUE,
+                        file_type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', worker_id TEXT,
+                        retry_count INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, error_log TEXT)""")
+        conn.execute("INSERT INTO tasks (filename, file_type) VALUES ('viejo.mp3', 'mp3')")
+    monkeypatch.setattr(server, "DB_PATH", str(db))
+
+    with TestClient(server.app) as c:
+        _complete(c, "w", 0.5)
+        assert c.get("/tasks", params={"status": "completed"}).json()[0]["execution_time_sec"] == 0.5

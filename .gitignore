@@ -10,3 +10,5 @@ dataset/real/
 dataset/real_sample/
 tasks.db
 resultados_worker/
+tasks_viejo*.db
+servidor_central.log
